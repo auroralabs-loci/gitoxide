@@ -524,7 +524,7 @@ fn scripted_fixture_for_hash_kind_read_only_with_args_inner(
         let init = if hash_kind == gix_hash::Kind::Sha1 {
             script_path.clone()
         } else {
-            script_path.clone().join(&hash_kind.to_string())
+            script_path.clone().join(hash_kind.to_string())
         };
         map.entry(args.iter().fold(init, |p, a| p.join(a)))
             .or_insert_with(|| {
@@ -561,7 +561,7 @@ fn scripted_fixture_for_hash_kind_read_only_with_args_inner(
             let potential_hash_suffix = if hash_kind == gix_hash::Kind::Sha1 {
                 "".into()
             } else {
-                format!("_{}", hash_kind.to_string())
+                format!("_{}", hash_kind)
             };
             Path::new("generated-archives").join(format!(
                 "{}{suffix}{potential_hash_suffix}.tar{}",
@@ -576,7 +576,7 @@ fn scripted_fixture_for_hash_kind_read_only_with_args_inner(
             let mut path = Path::new("generated-do-not-edit").join(script_basename);
             if hash_kind != gix_hash::Kind::Sha1 {
                 path = path.join(hash_kind.to_string());
-            };
+            }
             path = path.join(format!("{}-{}", script_identity, family_name()));
             let dir = fixture_path_inner(path, root);
             (false, dir)
