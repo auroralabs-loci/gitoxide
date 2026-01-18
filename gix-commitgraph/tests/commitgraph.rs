@@ -7,7 +7,7 @@ use std::{
 };
 
 use gix_commitgraph::{Graph, Position as GraphPosition};
-use gix_testtools::scripted_fixture_read_only;
+use gix_testtools::scripted_fixture_for_hash_kind_read_only;
 
 mod access;
 
@@ -64,18 +64,20 @@ pub fn check_common(cg: &Graph, expected: &HashMap<String, RefInfo, impl BuildHa
 }
 
 pub fn graph_and_expected(
+    hash_kind: gix_hash::Kind,
     script_path: &str,
     refs: &[&'static str],
 ) -> (gix_commitgraph::Graph, HashMap<String, RefInfo>) {
-    graph_and_expected_named(script_path, "", refs)
+    graph_and_expected_named(hash_kind, script_path, "", refs)
 }
 
 pub fn graph_and_expected_named(
+    hash_kind: gix_hash::Kind,
     script_path: &str,
     name: &str,
     refs: &[&'static str],
 ) -> (gix_commitgraph::Graph, HashMap<String, RefInfo>) {
-    let repo_dir = scripted_fixture_read_only(script_path)
+    let repo_dir = scripted_fixture_for_hash_kind_read_only(hash_kind, script_path)
         .expect("script succeeds all the time")
         .join(name);
     let expected = inspect_refs(&repo_dir, refs);
