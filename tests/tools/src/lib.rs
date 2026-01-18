@@ -316,6 +316,15 @@ pub fn scripted_fixture_read_only(script_name: impl AsRef<Path>) -> Result<PathB
     scripted_fixture_read_only_with_args(script_name, None::<String>)
 }
 
+/// TODO:
+/// Document.
+pub fn scripted_fixture_for_hash_kind_read_only(
+    hash_kind: gix_hash::Kind,
+    script_name: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    scripted_fixture_for_hash_kind_read_only_with_args(hash_kind, script_name, None::<String>)
+}
+
 /// Like [`scripted_fixture_read_only`], but does not prefix the fixture directory with `tests`
 pub fn scripted_fixture_read_only_standalone(script_name: impl AsRef<Path>) -> Result<PathBuf> {
     scripted_fixture_read_only_with_args_standalone(script_name, None::<String>)
@@ -424,6 +433,23 @@ pub fn scripted_fixture_read_only_with_args(
     scripted_fixture_read_only_with_args_inner(script_name, args, None, DirectoryRoot::IntegrationTest, ArgsInHash::Yes)
 }
 
+/// TODO:
+/// Document.
+pub fn scripted_fixture_for_hash_kind_read_only_with_args(
+    hash_kind: gix_hash::Kind,
+    script_name: impl AsRef<Path>,
+    args: impl IntoIterator<Item = impl Into<String>>,
+) -> Result<PathBuf> {
+    scripted_fixture_for_hash_kind_read_only_with_args_inner(
+        hash_kind,
+        script_name,
+        args,
+        None,
+        DirectoryRoot::IntegrationTest,
+        ArgsInHash::Yes,
+    )
+}
+
 /// Like `scripted_fixture_read_only()`], but passes `args` to `script_name`.
 ///
 /// Also, don't add a suffix to the archive name as `args` are platform dependent, none-deterministic,
@@ -465,6 +491,24 @@ fn scripted_fixture_read_only_with_args_inner(
     root: DirectoryRoot,
     args_in_hash: ArgsInHash,
 ) -> Result<PathBuf> {
+    scripted_fixture_for_hash_kind_read_only_with_args_inner(
+        gix_hash::Kind::Sha1,
+        script_name,
+        args,
+        destination_dir,
+        root,
+        args_in_hash,
+    )
+}
+
+fn scripted_fixture_for_hash_kind_read_only_with_args_inner(
+    hash_kind: gix_hash::Kind,
+    script_name: impl AsRef<Path>,
+    args: impl IntoIterator<Item = impl Into<String>>,
+    destination_dir: Option<&Path>,
+    root: DirectoryRoot,
+    args_in_hash: ArgsInHash,
+) -> Result<PathBuf> {
     // Assure tempfiles get removed when aborting the test.
     gix_tempfile::signal::setup(
         gix_tempfile::signal::handler::Mode::DeleteTempfilesOnTerminationAndRestoreDefaultBehaviour,
@@ -477,7 +521,12 @@ fn scripted_fixture_read_only_with_args_inner(
     let args: Vec<String> = args.into_iter().map(Into::into).collect();
     let script_identity = {
         let mut map = SCRIPT_IDENTITY.lock();
-        map.entry(args.iter().fold(script_path.clone(), |p, a| p.join(a)))
+        let init = if hash_kind == gix_hash::Kind::Sha1 {
+            script_path.clone()
+        } else {
+            script_path.clone().join(&hash_kind.to_string())
+        };
+        map.entry(args.iter().fold(init, |p, a| p.join(a)))
             .or_insert_with(|| {
                 let crc_value = crc::Crc::<u32>::new(&crc::CRC_32_CKSUM);
                 let mut crc_digest = crc_value.digest();
@@ -509,8 +558,13 @@ fn scripted_fixture_read_only_with_args_inner(
                 }
                 ArgsInHash::No => "".into(),
             };
+            let potential_hash_suffix = if hash_kind == gix_hash::Kind::Sha1 {
+                "".into()
+            } else {
+                format!("_{}", hash_kind.to_string())
+            };
             Path::new("generated-archives").join(format!(
-                "{}{suffix}.tar{}",
+                "{}{suffix}{potential_hash_suffix}.tar{}",
                 script_basename.to_str().expect("valid UTF-8"),
                 if cfg!(feature = "xz") { ".xz" } else { "" }
             ))
@@ -519,14 +573,12 @@ fn scripted_fixture_read_only_with_args_inner(
     );
     let (force_run, script_result_directory) = destination_dir.map_or_else(
         || {
-            let dir = fixture_path_inner(
-                Path::new("generated-do-not-edit").join(script_basename).join(format!(
-                    "{}-{}",
-                    script_identity,
-                    family_name()
-                )),
-                root,
-            );
+            let mut path = Path::new("generated-do-not-edit").join(script_basename);
+            if hash_kind != gix_hash::Kind::Sha1 {
+                path = path.join(hash_kind.to_string());
+            };
+            path = path.join(format!("{}-{}", script_identity, family_name()));
+            let dir = fixture_path_inner(path, root);
             (false, dir)
         },
         |d| (true, d.to_owned()),
@@ -588,13 +640,13 @@ fn scripted_fixture_read_only_with_args_inner(
                 }
                 let script_absolute_path = env::current_dir()?.join(script_path);
                 let mut cmd = std::process::Command::new(&script_absolute_path);
-                let output = match configure_command(&mut cmd, &args, &script_result_directory).output() {
+                let output = match configure_command(&mut cmd, hash_kind, &args, &script_result_directory).output() {
                     Ok(out) => out,
                     Err(err)
                     if err.kind() == std::io::ErrorKind::PermissionDenied || err.raw_os_error() == Some(193) /* windows */ =>
                         {
                             cmd = std::process::Command::new(bash_program());
-                            configure_command(cmd.arg(script_absolute_path), &args, &script_result_directory).output()?
+                            configure_command(cmd.arg(script_absolute_path), hash_kind, &args, &script_result_directory).output()?
                         }
                     Err(err) => return Err(err.into()),
                 };
@@ -625,6 +677,7 @@ const NULL_DEVICE: &str = "/dev/null";
 
 fn configure_command<'a, I: IntoIterator<Item = S>, S: AsRef<OsStr>>(
     cmd: &'a mut std::process::Command,
+    hash_kind: gix_hash::Kind,
     args: I,
     script_result_directory: &Path,
 ) -> &'a mut std::process::Command {
@@ -644,6 +697,7 @@ fn configure_command<'a, I: IntoIterator<Item = S>, S: AsRef<OsStr>>(
         .env_remove("GIT_WORK_TREE")
         .env_remove("GIT_COMMON_DIR")
         .env_remove("GIT_ASKPASS")
+        .env_remove("GIT_DEFAULT_HASH")
         .env_remove("SSH_ASKPASS")
         .env("MSYS", msys_for_git_bash_on_windows)
         .env("GIT_CONFIG_NOSYSTEM", "1")
@@ -664,6 +718,7 @@ fn configure_command<'a, I: IntoIterator<Item = S>, S: AsRef<OsStr>>(
         .env("GIT_CONFIG_VALUE_2", "main")
         .env("GIT_CONFIG_KEY_3", "protocol.file.allow")
         .env("GIT_CONFIG_VALUE_3", "always")
+        .env("GIT_DEFAULT_HASH", hash_kind.to_string())
 }
 
 /// Get the path attempted as a `bash` interpreter, for fixture scripts having no `#!` we can use.
@@ -1051,7 +1106,12 @@ mod tests {
         let mut cmd = std::process::Command::new(GIT_PROGRAM);
         cmd.env("GIT_CONFIG_SYSTEM", SCOPE_ENV_VALUE);
         cmd.env("GIT_CONFIG_GLOBAL", SCOPE_ENV_VALUE);
-        configure_command(&mut cmd, ["config", "-l", "--show-origin"], temp.path());
+        configure_command(
+            &mut cmd,
+            gix_hash::Kind::Sha1,
+            ["config", "-l", "--show-origin"],
+            temp.path(),
+        );
 
         let output = cmd.output().expect("can run git");
         let lines: Vec<_> = output
