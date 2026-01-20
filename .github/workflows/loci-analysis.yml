@@ -1,0 +1,41 @@
+name: LOCI Analysis
+on:
+  push:
+    branches:
+      - main*
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  loci:
+    runs-on: ubuntu-latest
+
+    env:
+      LOCI_PROJECT: PROJECT_NAME
+      LOCI_API_KEY: '${{ secrets.LOCI_API_KEY }}'
+      LOCI_BACKEND_URL: '${{ vars.LOCI_BACKEND_URL }}'
+
+    environment: ${{ vars.LOCI_ENV || 'PROD__AL_DEMO' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: echo "Installing dependencies here"
+        shell: bash -euo pipefail {0}
+
+      - name: Build
+        run: echo "Building the project here"
+        shell: bash -euo pipefail {0}
+
+      - name: Upload
+        uses: auroralabs-loci/loci-action@v1
+        with:
+          mode: upload
+          binaries: |
+                path/to/your/binary1
+                path/to/your/binary2
+          project: '${{ env.LOCI_PROJECT }}'
