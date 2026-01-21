@@ -247,7 +247,7 @@ enum DirectoryRoot {
     StandaloneTest,
 }
 
-/// Don't add a suffix to the archive name as `args` are platform dependent, none-deterministic,
+/// Don't add a suffix to the archive name as `args` are platform dependent, non-deterministic,
 /// or otherwise don't influence the content of the archive.
 /// Note that this also means that `args` won't be used to control the hash of the archive itself.
 #[derive(Copy, Clone)]
@@ -425,7 +425,7 @@ pub fn copy_recursively_into_existing_dir(src_dir: impl AsRef<Path>, dst_dir: im
     Ok(())
 }
 
-/// Like `scripted_fixture_read_only()`], but passes `args` to `script_name`.
+/// Like [`scripted_fixture_read_only()`], but passes `args` to `script_name`.
 pub fn scripted_fixture_read_only_with_args(
     script_name: impl AsRef<Path>,
     args: impl IntoIterator<Item = impl Into<String>>,
