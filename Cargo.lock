@@ -1358,6 +1358,7 @@ dependencies = [
  "futures-lite",
  "gix",
  "gix-archive",
+ "gix-error",
  "gix-fsck",
  "gix-pack",
  "gix-status",
@@ -1753,7 +1754,10 @@ dependencies = [
 name = "gix-error"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "bstr",
+ "document-features",
+ "gix-error",
  "insta",
 ]
 
@@ -2552,7 +2556,6 @@ version = "0.10.1"
 dependencies = [
  "bstr",
  "gix-testtools",
- "thiserror 2.0.17",
 ]
 
 [[package]]
