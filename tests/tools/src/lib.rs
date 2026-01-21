@@ -316,8 +316,7 @@ pub fn scripted_fixture_read_only(script_name: impl AsRef<Path>) -> Result<PathB
     scripted_fixture_read_only_with_args(script_name, None::<String>)
 }
 
-/// TODO:
-/// Document.
+/// Like [`scripted_fixture_read_only()`], but also accepts `hash_kind`.
 pub fn scripted_fixture_for_hash_kind_read_only(
     hash_kind: gix_hash::Kind,
     script_name: impl AsRef<Path>,
@@ -433,8 +432,7 @@ pub fn scripted_fixture_read_only_with_args(
     scripted_fixture_read_only_with_args_inner(script_name, args, None, DirectoryRoot::IntegrationTest, ArgsInHash::Yes)
 }
 
-/// TODO:
-/// Document.
+/// Like [`scripted_fixture_read_only_with_args()`], but also accepts `hash_kind`.
 pub fn scripted_fixture_for_hash_kind_read_only_with_args(
     hash_kind: gix_hash::Kind,
     script_name: impl AsRef<Path>,
