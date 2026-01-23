@@ -316,14 +316,6 @@ pub fn scripted_fixture_read_only(script_name: impl AsRef<Path>) -> Result<PathB
     scripted_fixture_read_only_with_args(script_name, None::<String>)
 }
 
-/// Like [`scripted_fixture_read_only()`], but also accepts `hash_kind`.
-pub fn scripted_fixture_for_hash_kind_read_only(
-    hash_kind: gix_hash::Kind,
-    script_name: impl AsRef<Path>,
-) -> Result<PathBuf> {
-    scripted_fixture_for_hash_kind_read_only_with_args(hash_kind, script_name, None::<String>)
-}
-
 /// Like [`scripted_fixture_read_only`], but does not prefix the fixture directory with `tests`
 pub fn scripted_fixture_read_only_standalone(script_name: impl AsRef<Path>) -> Result<PathBuf> {
     scripted_fixture_read_only_with_args_standalone(script_name, None::<String>)
@@ -432,22 +424,6 @@ pub fn scripted_fixture_read_only_with_args(
     scripted_fixture_read_only_with_args_inner(script_name, args, None, DirectoryRoot::IntegrationTest, ArgsInHash::Yes)
 }
 
-/// Like [`scripted_fixture_read_only_with_args()`], but also accepts `hash_kind`.
-pub fn scripted_fixture_for_hash_kind_read_only_with_args(
-    hash_kind: gix_hash::Kind,
-    script_name: impl AsRef<Path>,
-    args: impl IntoIterator<Item = impl Into<String>>,
-) -> Result<PathBuf> {
-    scripted_fixture_for_hash_kind_read_only_with_args_inner(
-        hash_kind,
-        script_name,
-        args,
-        None,
-        DirectoryRoot::IntegrationTest,
-        ArgsInHash::Yes,
-    )
-}
-
 /// Like `scripted_fixture_read_only()`], but passes `args` to `script_name`.
 ///
 /// Also, don't add a suffix to the archive name as `args` are platform dependent, none-deterministic,
@@ -489,28 +465,17 @@ fn scripted_fixture_read_only_with_args_inner(
     root: DirectoryRoot,
     args_in_hash: ArgsInHash,
 ) -> Result<PathBuf> {
-    scripted_fixture_for_hash_kind_read_only_with_args_inner(
-        gix_hash::Kind::Sha1,
-        script_name,
-        args,
-        destination_dir,
-        root,
-        args_in_hash,
-    )
-}
-
-fn scripted_fixture_for_hash_kind_read_only_with_args_inner(
-    hash_kind: gix_hash::Kind,
-    script_name: impl AsRef<Path>,
-    args: impl IntoIterator<Item = impl Into<String>>,
-    destination_dir: Option<&Path>,
-    root: DirectoryRoot,
-    args_in_hash: ArgsInHash,
-) -> Result<PathBuf> {
     // Assure tempfiles get removed when aborting the test.
     gix_tempfile::signal::setup(
         gix_tempfile::signal::handler::Mode::DeleteTempfilesOnTerminationAndRestoreDefaultBehaviour,
     );
+
+    let gix_test_hash = env::var_os("GIX_TEST_HASH")
+        .and_then(|os_string| os_string.into_string().ok())
+        .unwrap_or_default();
+    let hash_kind = gix_hash::Kind::from_str(&gix_test_hash).unwrap_or_default();
+
+    eprintln!("Using hash '{hash_kind}' when determining which fixture to use or recreate");
 
     let script_location = script_name.as_ref();
     let script_path = fixture_path_inner(script_location, root);

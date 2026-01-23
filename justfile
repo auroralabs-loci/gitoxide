@@ -163,7 +163,8 @@ unit-tests:
     cargo nextest run -p gix-hash --no-fail-fast
     cargo nextest run -p gix-hash --features sha256 --no-fail-fast
     cargo nextest run -p gix-hash --no-default-features --features sha256 --no-fail-fast # TODO: make this actually work by removing 'sha1' from default features.
-    cargo nextest run -p gix-commitgraph --features sha256 --no-fail-fast
+    env GIX_TEST_HASH=sha1 cargo nextest run -p gix-commitgraph --no-fail-fast
+    env GIX_TEST_HASH=sha256 cargo nextest run -p gix-commitgraph --no-fail-fast
     cargo nextest run -p gix-object --no-fail-fast
     cargo nextest run -p gix-object --features verbose-object-parsing-errors --no-fail-fast
     cargo nextest run -p gix-tempfile --features signals --no-fail-fast
