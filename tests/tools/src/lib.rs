@@ -695,7 +695,6 @@ fn configure_command<'a, I: IntoIterator<Item = S>, S: AsRef<OsStr>>(
         .env_remove("GIT_WORK_TREE")
         .env_remove("GIT_COMMON_DIR")
         .env_remove("GIT_ASKPASS")
-        .env_remove("GIT_DEFAULT_HASH")
         .env_remove("SSH_ASKPASS")
         .env("MSYS", msys_for_git_bash_on_windows)
         .env("GIT_CONFIG_NOSYSTEM", "1")
