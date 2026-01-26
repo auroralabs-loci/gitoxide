@@ -1,0 +1,45 @@
+name: LOCI Analysis
+on:
+  push:
+    branches:
+      - main*
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  loci:
+    runs-on: ubuntu-latest
+
+    env:
+      LOCI_PROJECT: "gitoxide"
+      LOCI_API_KEY: '${{ secrets.LOCI_API_KEY }}'
+      LOCI_BACKEND_URL: '${{ vars.LOCI_BACKEND_URL }}'
+      CC_aarch64_unknown_linux_gnu: "aarch64-linux-gnu-gcc"
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: "aarch64-linux-gnu-gcc"
+      RUSTFLAGS: "-C debuginfo=2"
+      OPENSSL_STATIC: "1"
+
+    environment: ${{ vars.LOCI_ENV || 'PROD__AL_DEMO' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: sudo apt install gcc-aarch64-linux-gnu && rustup target add aarch64-unknown-linux-gnu
+        shell: bash -euo pipefail {0}
+
+      - name: Build
+        run: cargo build --target aarch64-unknown-linux-gnu --release --bins --no-default-features --features max-pure
+        shell: bash -euo pipefail {0}
+
+      - name: Upload
+        uses: auroralabs-loci/loci-action@v1
+        with:
+          mode: upload
+          binaries: |
+                target/aarch64-unknown-linux-gnu/release/ein
+                target/aarch64-unknown-linux-gnu/release/gix
+          project: '${{ env.LOCI_PROJECT }}'
