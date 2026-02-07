@@ -10,7 +10,7 @@ use crate::store_impls::loose::{hash_path, Store, HEADER_MAX_SIZE};
 pub enum Error {
     #[error("decompression of loose object at '{path}' failed")]
     DecompressFile {
-        source: zlib::inflate::Error,
+        source: gix_error::Error,
         path: PathBuf,
     },
     #[error("file at '{path}' showed invalid size of inflated data, expected {expected}, got {actual}")]
@@ -165,13 +165,13 @@ impl Store {
             inflate
                 .once(compressed_buf, header_buf)
                 .map_err(|e| Error::DecompressFile {
-                    source: e,
+                    source: e.into_error(),
                     path: path.to_owned(),
                 })?;
 
         if status == zlib::Status::BufError {
             return Err(Error::DecompressFile {
-                source: zlib::inflate::Error::Status(status),
+                source: gix_error::Error::from_error(gix_error::message!("The zlib status indicated an error, status was '{status:?}'")),
                 path,
             });
         }
@@ -202,7 +202,7 @@ impl Store {
                 inflate
                     .once(&input[..bytes_read], output)
                     .map_err(|e| Error::DecompressFile {
-                        source: e,
+                        source: e.into_error(),
                         path: path.to_owned(),
                     })?,
                 bytes_read,
@@ -210,7 +210,7 @@ impl Store {
         };
         if status == zlib::Status::BufError {
             return Err(Error::DecompressFile {
-                source: zlib::inflate::Error::Status(status),
+                source: gix_error::Error::from_error(gix_error::message!("The zlib status indicated an error, status was '{status:?}'")),
                 path,
             });
         }

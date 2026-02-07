@@ -371,7 +371,7 @@ impl<'index> State<'_, 'index> {
             Err(err) if gix_fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
                 return Ok(Some(Change::Removed.into()))
             }
-            Err(err) => return Err(Error::Io(err.into())),
+            Err(err) => return Err(Error::Io(err)),
         };
         self.symlink_metadata_calls.fetch_add(1, Ordering::Relaxed);
         let metadata = match gix_index::fs::Metadata::from_path_no_follow(worktree_path) {
@@ -397,7 +397,7 @@ impl<'index> State<'_, 'index> {
                 return Ok(Some(Change::Removed.into()))
             }
             Err(err) => {
-                return Err(Error::Io(err.into()));
+                return Err(Error::Io(err));
             }
         };
         if entry.flags.contains(gix_index::entry::Flags::INTENT_TO_ADD) {
@@ -569,7 +569,7 @@ where
         // TODO: what to do about precompose unicode and ignore_case for symlinks
         let out = if is_symlink && self.core_symlinks {
             let symlink_path = gix_path::to_unix_separators_on_windows(gix_path::into_bstr(
-                std::fs::read_link(self.path).map_err(gix_hash::io::Error::from)?,
+                std::fs::read_link(self.path)?,
             ));
             self.buf.extend_from_slice(&symlink_path);
             self.worktree_bytes.fetch_add(self.buf.len() as u64, Ordering::Relaxed);
@@ -582,9 +582,8 @@ where
             self.buf.clear();
             let platform = self
                 .attr_stack
-                .at_entry(self.rela_path, Some(self.entry.mode), &self.objects)
-                .map_err(gix_hash::io::Error::from)?;
-            let file = std::fs::File::open(self.path).map_err(gix_hash::io::Error::from)?;
+                .at_entry(self.rela_path, Some(self.entry.mode), &self.objects)?;
+            let file = std::fs::File::open(self.path)?;
             let out = self
                 .filter
                 .convert_to_git(
@@ -595,7 +594,7 @@ where
                     },
                     &mut |buf| Ok(self.objects.find_blob(self.id, buf).map(|_| Some(()))?),
                 )
-                .map_err(|err| Error::Io(io::Error::other(err).into()))?;
+                .map_err(|err| Error::Io(io::Error::other(err)))?;
             let len = match out {
                 ToGitOutcome::Unchanged(_) => Some(self.file_len),
                 ToGitOutcome::Process(_) | ToGitOutcome::Buffer(_) => None,

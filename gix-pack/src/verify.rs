@@ -11,9 +11,9 @@ pub mod checksum {
         #[error("Interrupted by user")]
         Interrupted,
         #[error("Failed to hash data")]
-        Hasher(#[from] gix_hash::hasher::Error),
-        #[error(transparent)]
-        Verify(#[from] gix_hash::verify::Error),
+        Hasher(#[source] gix_error::Error),
+        #[error("Failed to verify checksum")]
+        Verify(#[source] gix_error::Error),
     }
 }
 
@@ -44,20 +44,32 @@ pub fn checksum_on_disk_or_mmap(
         should_interrupt,
     ) {
         Ok(id) => id,
-        Err(gix_hash::io::Error::Io(err)) if err.kind() == std::io::ErrorKind::Interrupted => {
-            return Err(checksum::Error::Interrupted);
+        Err(err) => {
+            if err.to_string().contains("Interrupted")
+                || err
+                    .downcast_any_ref::<std::io::Error>()
+                    .map_or(false, |e| e.kind() == std::io::ErrorKind::Interrupted)
+            {
+                return Err(checksum::Error::Interrupted);
+            }
+            if err.downcast_any_ref::<std::io::Error>().is_some() {
+                // Fall back to hashing from memory-mapped data
+                let start = std::time::Instant::now();
+                let mut hasher = gix_hash::hasher(object_hash);
+                hasher.update(&data[..data_len_without_trailer]);
+                progress.inc_by(data_len_without_trailer);
+                progress.show_throughput(start);
+                hasher
+                    .try_finalize()
+                    .map_err(|e| checksum::Error::Hasher(e.into_error()))?
+            } else {
+                return Err(checksum::Error::Hasher(err.into_error()));
+            }
         }
-        Err(gix_hash::io::Error::Io(_io_err)) => {
-            let start = std::time::Instant::now();
-            let mut hasher = gix_hash::hasher(object_hash);
-            hasher.update(&data[..data_len_without_trailer]);
-            progress.inc_by(data_len_without_trailer);
-            progress.show_throughput(start);
-            hasher.try_finalize()?
-        }
-        Err(gix_hash::io::Error::Hasher(err)) => return Err(checksum::Error::Hasher(err)),
     };
 
-    actual.verify(&expected)?;
+    actual
+        .verify(&expected)
+        .map_err(|e| checksum::Error::Verify(e.into_error()))?;
     Ok(actual)
 }

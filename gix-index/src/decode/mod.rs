@@ -17,7 +17,7 @@ mod error {
         #[error(transparent)]
         Header(#[from] decode::header::Error),
         #[error("Could not hash index data")]
-        Hasher(#[from] gix_hash::hasher::Error),
+        Hasher(#[source] gix_error::Error),
         #[error("Could not parse entry at index {index}")]
         Entry { index: u32 },
         #[error("Mandatory extension wasn't implemented or malformed.")]
@@ -25,7 +25,7 @@ mod error {
         #[error("Index trailer should have been {expected} bytes long, but was {actual}")]
         UnexpectedTrailerLength { expected: usize, actual: usize },
         #[error("Shared index checksum mismatch")]
-        Verify(#[from] gix_hash::verify::Error),
+        Verify(#[source] gix_error::Error),
     }
 }
 pub use error::Error;
@@ -66,7 +66,8 @@ impl State {
     ) -> Result<(Self, Option<gix_hash::ObjectId>), Error> {
         let _span = gix_features::trace::detail!("gix_index::State::from_bytes()", options = ?_options);
         let (version, num_entries, post_header_data) = header::decode(data, object_hash)?;
-        let start_of_extensions = extension::end_of_index_entry::decode(data, object_hash)?;
+        let start_of_extensions =
+            extension::end_of_index_entry::decode(data, object_hash).map_err(|e| Error::Hasher(e.into_error()))?;
 
         let mut num_threads = gix_features::parallel::num_threads(thread_limit);
         let path_backing_buffer_size = entries::estimate_path_storage_requirements_in_bytes(
@@ -216,7 +217,9 @@ impl State {
         let checksum = gix_hash::ObjectId::from_bytes_or_panic(data);
         let checksum = (!checksum.is_null()).then_some(checksum);
         if let Some((expected_checksum, actual_checksum)) = expected_checksum.zip(checksum) {
-            actual_checksum.verify(&expected_checksum)?;
+            actual_checksum
+                .verify(&expected_checksum)
+                .map_err(|e| Error::Verify(e.into_error()))?;
         }
         let EntriesOutcome {
             entries,

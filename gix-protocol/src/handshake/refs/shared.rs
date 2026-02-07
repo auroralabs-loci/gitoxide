@@ -160,18 +160,18 @@ pub(in crate::handshake::refs) fn parse_v1(
             out_refs.push(InternalRef::Peeled {
                 path: previous_path,
                 tag,
-                object: gix_hash::ObjectId::from_hex(hex_hash.as_bytes())?,
+                object: gix_hash::ObjectId::from_hex(hex_hash.as_bytes()).map_err(|e| Error::Id(e.into_error()))?,
             });
         }
         None => {
             let object = match gix_hash::ObjectId::from_hex(hex_hash.as_bytes()) {
                 Ok(id) => id,
                 Err(_) if hex_hash.as_bstr() == "shallow" => {
-                    let id = gix_hash::ObjectId::from_hex(path)?;
+                    let id = gix_hash::ObjectId::from_hex(path).map_err(|e| Error::Id(e.into_error()))?;
                     out_shallow.push(ShallowUpdate::Shallow(id));
                     return Ok(());
                 }
-                Err(err) => return Err(err.into()),
+                Err(err) => return Err(Error::Id(err.into_error())),
             };
             match out_refs
                 .iter()
@@ -205,7 +205,7 @@ pub(in crate::handshake::refs) fn parse_v2(line: &BStr) -> Result<Ref, Error> {
             let id = if hex_hash == b"unborn" {
                 None
             } else {
-                Some(gix_hash::ObjectId::from_hex(hex_hash.as_bytes())?)
+                Some(gix_hash::ObjectId::from_hex(hex_hash.as_bytes()).map_err(|e| Error::Id(e.into_error()))?)
             };
             if path.is_empty() {
                 return Err(Error::MalformedV2RefLine(trimmed.to_owned().into()));
@@ -221,7 +221,7 @@ pub(in crate::handshake::refs) fn parse_v2(line: &BStr) -> Result<Ref, Error> {
                         }
                         match attribute {
                             b"peeled" => {
-                                peeled = Some(gix_hash::ObjectId::from_hex(value.as_bytes())?);
+                                peeled = Some(gix_hash::ObjectId::from_hex(value.as_bytes()).map_err(|e| Error::Id(e.into_error()))?);
                             }
                             b"symref-target" => {
                                 symref_target = Some(value);

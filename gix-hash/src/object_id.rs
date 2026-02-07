@@ -42,6 +42,8 @@ impl Hash for ObjectId {
 pub mod decode {
     use std::str::FromStr;
 
+    use gix_error::ErrorExt as _;
+
     use crate::object_id::ObjectId;
 
     #[cfg(feature = "sha1")]
@@ -51,14 +53,7 @@ pub mod decode {
     use crate::{SIZE_OF_SHA256_DIGEST, SIZE_OF_SHA256_HEX_DIGEST};
 
     /// An error returned by [`ObjectId::from_hex()`][crate::ObjectId::from_hex()]
-    #[derive(Debug, thiserror::Error)]
-    #[allow(missing_docs)]
-    pub enum Error {
-        #[error("A hash sized {0} hexadecimal characters is invalid")]
-        InvalidHexEncodingLength(usize),
-        #[error("Invalid character encountered")]
-        Invalid,
-    }
+    pub type Error = gix_error::Exn<gix_error::Message>;
 
     /// Hash decoding
     impl ObjectId {
@@ -74,7 +69,7 @@ pub mod decode {
                     ObjectId::Sha1({
                         let mut buf = [0; SIZE_OF_SHA1_DIGEST];
                         faster_hex::hex_decode(buffer, &mut buf).map_err(|err| match err {
-                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => Error::Invalid,
+                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => gix_error::message("Invalid character encountered").raise(),
                             faster_hex::Error::InvalidLength(_) => {
                                 unreachable!("BUG: This is already checked")
                             }
@@ -87,7 +82,7 @@ pub mod decode {
                     ObjectId::Sha256({
                         let mut buf = [0; SIZE_OF_SHA256_DIGEST];
                         faster_hex::hex_decode(buffer, &mut buf).map_err(|err| match err {
-                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => Error::Invalid,
+                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => gix_error::message("Invalid character encountered").raise(),
                             faster_hex::Error::InvalidLength(_) => {
                                 unreachable!("BUG: This is already checked")
                             }
@@ -95,7 +90,7 @@ pub mod decode {
                         buf
                     })
                 }),
-                len => Err(Error::InvalidHexEncodingLength(len)),
+                len => Err(gix_error::message!("A hash sized {len} hexadecimal characters is invalid").raise()),
             }
         }
     }

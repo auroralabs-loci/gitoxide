@@ -17,29 +17,32 @@ mod from_hex {
     }
 
     mod invalid {
-        use gix_hash::{decode, ObjectId};
+        use gix_hash::ObjectId;
 
         #[test]
         fn non_hex_characters() {
-            assert!(matches!(
-                ObjectId::from_hex(b"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz").unwrap_err(),
-                decode::Error::Invalid
-            ));
+            let err = ObjectId::from_hex(b"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz").unwrap_err();
+            assert!(
+                err.to_string().contains("Invalid character encountered"),
+                "got: {err}"
+            );
         }
 
         #[test]
         fn too_short() {
-            assert!(matches!(
-                ObjectId::from_hex(b"abcd").unwrap_err(),
-                decode::Error::InvalidHexEncodingLength(4)
-            ));
+            let err = ObjectId::from_hex(b"abcd").unwrap_err();
+            assert!(
+                err.to_string().contains("hexadecimal characters is invalid"),
+                "got: {err}"
+            );
         }
         #[test]
         fn too_long() {
-            assert!(matches!(
-                ObjectId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaf").unwrap_err(),
-                decode::Error::InvalidHexEncodingLength(41)
-            ));
+            let err = ObjectId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaf").unwrap_err();
+            assert!(
+                err.to_string().contains("hexadecimal characters is invalid"),
+                "got: {err}"
+            );
         }
     }
 }
@@ -62,9 +65,9 @@ fn from_bytes_or_panic_sha256() {
 mod sha1 {
     use std::str::FromStr as _;
 
-    use gix_hash::{hasher, Kind, ObjectId};
+    use gix_hash::{hasher, hasher::Error, Kind, ObjectId};
 
-    fn hash_contents(s: &[u8]) -> Result<ObjectId, hasher::Error> {
+    fn hash_contents(s: &[u8]) -> Result<ObjectId, Error> {
         let mut hasher = hasher(Kind::Sha1);
         hasher.update(s);
         hasher.try_finalize()
@@ -125,15 +128,27 @@ mod sha1 {
         let expected =
             ObjectId::from_str("8ac60ba76f1999a1ab70223f225aefdc78d4ddc0").expect("Shambles digest to be valid");
 
-        let Err(hasher::Error::CollisionAttack { digest }) = hash_contents(message_a) else {
-            panic!("expected Shambles input to collide");
-        };
-        assert_eq!(digest, expected);
+        let err = hash_contents(message_a).unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("collision attack"),
+            "expected collision attack error, got: {err_msg}"
+        );
+        assert!(
+            err_msg.contains(&expected.to_string()),
+            "expected digest {expected} in error, got: {err_msg}"
+        );
 
-        let Err(hasher::Error::CollisionAttack { digest }) = hash_contents(message_b) else {
-            panic!("expected Shambles input to collide");
-        };
-        assert_eq!(digest, expected);
+        let err = hash_contents(message_b).unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("collision attack"),
+            "expected collision attack error, got: {err_msg}"
+        );
+        assert!(
+            err_msg.contains(&expected.to_string()),
+            "expected digest {expected} in error, got: {err_msg}"
+        );
     }
 }
 

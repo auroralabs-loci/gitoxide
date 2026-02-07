@@ -21,7 +21,7 @@ pub enum Error<E: std::error::Error + Send + Sync + 'static> {
         source: crate::data::decode::Error,
     },
     #[error("The packfiles checksum didn't match the index file checksum")]
-    PackMismatch(#[source] gix_hash::verify::Error),
+    PackMismatch(#[source] gix_error::Error),
     #[error("Failed to verify pack file checksum")]
     PackVerify(#[source] crate::verify::checksum::Error),
     #[error("Error verifying object at offset {offset} against checksum in the index file")]

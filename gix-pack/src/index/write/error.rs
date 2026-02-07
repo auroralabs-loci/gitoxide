@@ -3,7 +3,7 @@
 #[allow(missing_docs)]
 pub enum Error {
     #[error("An error occurred when writing the pack index file")]
-    Io(#[from] gix_hash::io::Error),
+    Io(#[from] gix_error::Error),
     #[error("A pack entry could not be extracted")]
     PackEntryDecode(#[from] crate::data::input::Error),
     #[error("Indices of type {} cannot be written, only {} are supported", *.0 as usize, crate::index::Version::default() as usize)]

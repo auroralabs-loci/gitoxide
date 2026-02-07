@@ -1,5 +1,7 @@
 use std::io::Write;
 
+use gix_error::ResultExt;
+
 use crate::{entry, extension, write::util::CountBytes, State, Version};
 
 /// A way to specify which of the optional extensions to write.
@@ -85,9 +87,13 @@ impl State {
             .try_into()
             .expect("definitely not too many entries");
 
-        let offset_to_entries = header(&mut write, version, num_entries - removed_entries)?;
-        let offset_to_extensions = entries(&mut write, self, offset_to_entries)?;
-        let (extension_toc, out) = self.write_extensions(write, offset_to_extensions, extensions)?;
+        let offset_to_entries = header(&mut write, version, num_entries - removed_entries)
+            .or_raise(|| gix_error::message("Could not write index header"))?;
+        let offset_to_extensions = entries(&mut write, self, offset_to_entries)
+            .or_raise(|| gix_error::message("Could not write index entries"))?;
+        let (extension_toc, out) = self
+            .write_extensions(write, offset_to_extensions, extensions)
+            .or_raise(|| gix_error::message("Could not write index extensions"))?;
 
         if num_entries > 0
             && extensions

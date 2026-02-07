@@ -56,9 +56,9 @@ pub mod verify {
     #[allow(missing_docs)]
     pub enum Error {
         #[error("Failed to hash object")]
-        Hasher(#[from] gix_hash::hasher::Error),
-        #[error(transparent)]
-        Verify(#[from] gix_hash::verify::Error),
+        Hasher(#[from] gix_error::Error),
+        #[error("Hash verification failed")]
+        Verify(gix_error::Error),
     }
 
     impl crate::Data<'_> {
@@ -66,8 +66,8 @@ pub mod verify {
         /// If the hashes do not match, an [`Error`] is returned, containing the actual
         /// hash of `self`.
         pub fn verify_checksum(&self, expected: &gix_hash::oid) -> Result<gix_hash::ObjectId, Error> {
-            let actual = crate::compute_hash(expected.kind(), self.kind, self.data)?;
-            actual.verify(expected)?;
+            let actual = crate::compute_hash(expected.kind(), self.kind, self.data).map_err(|e| Error::Hasher(e.into_error()))?;
+            actual.verify(expected).map_err(|e| Error::Verify(e.into_error()))?;
             Ok(actual)
         }
     }

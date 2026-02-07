@@ -10,7 +10,7 @@ where
     E: std::error::Error + 'static,
 {
     #[error(transparent)]
-    Io(#[from] gix_hash::io::Error),
+    Io(#[from] gix_error::Error),
     #[error(transparent)]
     Input(E),
 }
@@ -97,7 +97,7 @@ where
             let header_bytes = crate::data::header::encode(version, num_entries);
             self.output
                 .write_all(&header_bytes[..])
-                .map_err(gix_hash::io::Error::from)?;
+                .map_err(gix_error::Error::from_error)?;
             self.written += header_bytes.len() as u64;
         }
         match self.input.next() {
@@ -117,9 +117,9 @@ where
                     });
                     self.written += header
                         .write_to(entry.decompressed_size as u64, &mut self.output)
-                        .map_err(gix_hash::io::Error::from)? as u64;
+                        .map_err(gix_error::Error::from_error)? as u64;
                     self.written += std::io::copy(&mut &*entry.compressed_data, &mut self.output)
-                        .map_err(gix_hash::io::Error::from)?;
+                        .map_err(gix_error::Error::from_error)?;
                 }
             }
             None => {
@@ -128,13 +128,13 @@ where
                     .hash
                     .clone()
                     .try_finalize()
-                    .map_err(gix_hash::io::Error::from)?;
+                    .map_err(|e| e.into_error())?;
                 self.output
                     .inner
                     .write_all(digest.as_slice())
-                    .map_err(gix_hash::io::Error::from)?;
+                    .map_err(gix_error::Error::from_error)?;
                 self.written += digest.as_slice().len() as u64;
-                self.output.inner.flush().map_err(gix_hash::io::Error::from)?;
+                self.output.inner.flush().map_err(gix_error::Error::from_error)?;
                 self.is_done = true;
                 self.trailer = Some(digest);
             }

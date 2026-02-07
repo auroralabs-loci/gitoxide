@@ -1,16 +1,9 @@
-use crate::hasher;
-
 /// The error type for I/O operations that compute hashes.
-#[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
-pub enum Error {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error("Failed to hash data")]
-    Hasher(#[from] hasher::Error),
-}
+pub type Error = gix_error::Exn<gix_error::Message>;
 
 pub(super) mod _impl {
+    use gix_error::{message, ErrorExt as _, ResultExt as _};
+
     use crate::{hasher, io::Error, Hasher};
 
     /// Compute the hash of `kind` for the bytes in the file at `path`, hashing only the first `num_bytes_from_start`
@@ -30,7 +23,7 @@ pub(super) mod _impl {
         should_interrupt: &std::sync::atomic::AtomicBool,
     ) -> Result<crate::ObjectId, Error> {
         bytes(
-            &mut std::fs::File::open(path)?,
+            &mut std::fs::File::open(path).or_raise(|| message("Failed to open file"))?,
             num_bytes_from_start,
             kind,
             progress,
@@ -70,16 +63,16 @@ pub(super) mod _impl {
 
         while bytes_left > 0 {
             let out = &mut buf[..BUF_SIZE.min(bytes_left as usize)];
-            read.read_exact(out)?;
+            read.read_exact(out).or_raise(|| message("Failed to read data"))?;
             bytes_left -= out.len() as u64;
             progress.inc_by(out.len());
             hasher.update(out);
             if should_interrupt.load(std::sync::atomic::Ordering::SeqCst) {
-                return Err(std::io::Error::other("Interrupted").into());
+                return Err(gix_error::message("Interrupted").raise());
             }
         }
 
-        let id = hasher.try_finalize()?;
+        let id = hasher.try_finalize().or_raise(|| message("Failed to hash data"))?;
         progress.show_throughput(start);
         Ok(id)
     }

@@ -96,7 +96,8 @@ impl File {
     fn decode_delta_object_size(&self, inflate: &mut zlib::Inflate, entry: &data::Entry) -> Result<u64, Error> {
         let mut buf = [0_u8; 32];
         let used = self
-            .decompress_entry_from_data_offset_2(entry.data_offset, inflate, &mut buf)?
+            .decompress_entry_from_data_offset_2(entry.data_offset, inflate, &mut buf)
+            .map_err(|e| Error::ZlibInflate(e.into_error()))?
             .1;
         let buf = &buf[..used];
         let (_base_size, offset) = delta::decode_header_size(buf);

@@ -138,26 +138,28 @@ mod new {
     #[test]
     fn errors_if_hex_len_is_longer_than_oid_len_in_hex() {
         let kind = Kind::Sha1;
-        assert!(matches!(
-            gix_hash::Prefix::new(&ObjectId::null(kind), kind.len_in_hex() + 1),
-            Err(gix_hash::prefix::Error::TooLong { .. })
-        ));
+        let err = gix_hash::Prefix::new(&ObjectId::null(kind), kind.len_in_hex() + 1).unwrap_err();
+        assert!(
+            err.to_string().contains("cannot be larger than"),
+            "got: {err}"
+        );
     }
 
     #[test]
     fn errors_if_hex_len_is_too_short() {
         let kind = Kind::Sha1;
-        assert!(matches!(
-            gix_hash::Prefix::new(&ObjectId::null(kind), 3),
-            Err(gix_hash::prefix::Error::TooShort { .. })
-        ));
+        let err = gix_hash::Prefix::new(&ObjectId::null(kind), 3).unwrap_err();
+        assert!(
+            err.to_string().contains("minimum hex length"),
+            "got: {err}"
+        );
     }
 }
 
 mod try_from {
     use std::cmp::Ordering;
 
-    use gix_hash::{prefix::from_hex::Error, Prefix};
+    use gix_hash::Prefix;
 
     use crate::hex_to_id;
 
@@ -183,41 +185,49 @@ mod try_from {
     #[test]
     fn id_to_short() {
         let input = "ab";
-        let expected = Error::TooShort { hex_len: 2 };
         let actual = Prefix::try_from(input).unwrap_err();
-        assert_eq!(actual, expected);
+        assert!(
+            actual.to_string().contains("minimum hex length"),
+            "got: {actual}"
+        );
     }
 
     #[test]
     #[cfg(all(not(feature = "sha256"), feature = "sha1"))]
     fn id_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123";
-        let expected = Error::TooLong { hex_len: 58 };
         let actual = Prefix::try_from(input).unwrap_err();
-        assert_eq!(actual, expected);
+        assert!(
+            actual.to_string().contains("cannot be larger than"),
+            "got: {actual}"
+        );
     }
 
     #[test]
     fn id_always_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123123123123123";
-        let expected = Error::TooLong { hex_len: 70 };
         let actual = Prefix::try_from(input).unwrap_err();
-        assert_eq!(actual, expected);
+        assert!(
+            actual.to_string().contains("cannot be larger than"),
+            "got: {actual}"
+        );
     }
 
     #[test]
     fn invalid_chars() {
         let input = "abcdfOsd";
-        let expected = Error::Invalid;
         let actual = Prefix::try_from(input).unwrap_err();
-        assert_eq!(actual, expected);
+        assert!(
+            actual.to_string().contains("Invalid hex character"),
+            "got: {actual}"
+        );
     }
 }
 
 mod from_hex_nonempty {
     use std::cmp::Ordering;
 
-    use gix_hash::{prefix::from_hex::Error, Prefix};
+    use gix_hash::Prefix;
 
     use crate::hex_to_id;
 
@@ -256,25 +266,31 @@ mod from_hex_nonempty {
     #[test]
     fn id_empty() {
         let input = "";
-        let expected = Error::TooShort { hex_len: 0 };
         let actual = Prefix::from_hex_nonempty(input).unwrap_err();
-        assert_eq!(actual, expected);
+        assert!(
+            actual.to_string().contains("minimum hex length"),
+            "got: {actual}"
+        );
     }
 
     #[test]
     #[cfg(all(not(feature = "sha256"), feature = "sha1"))]
     fn id_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123";
-        let expected = Error::TooLong { hex_len: 58 };
         let actual = Prefix::from_hex_nonempty(input).unwrap_err();
-        assert_eq!(actual, expected);
+        assert!(
+            actual.to_string().contains("cannot be larger than"),
+            "got: {actual}"
+        );
     }
 
     #[test]
     fn id_always_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123123123123123";
-        let expected = Error::TooLong { hex_len: 70 };
         let actual = Prefix::from_hex_nonempty(input).unwrap_err();
-        assert_eq!(actual, expected);
+        assert!(
+            actual.to_string().contains("cannot be larger than"),
+            "got: {actual}"
+        );
     }
 }

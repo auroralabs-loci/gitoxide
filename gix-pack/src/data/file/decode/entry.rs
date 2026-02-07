@@ -97,7 +97,7 @@ impl File {
         );
 
         self.decompress_entry_from_data_offset(entry.data_offset, inflate, out)
-            .map_err(Into::into)
+            .map_err(|e| Error::ZlibInflate(e.into_error()))
     }
 
     /// Obtain the [`Entry`][crate::data::Entry] at the given `offset` into the pack.
@@ -282,11 +282,13 @@ impl File {
             let mut relative_delta_start = 0;
             let mut biggest_result_size = 0;
             for (delta_idx, delta) in chain.iter_mut().rev().enumerate() {
-                let consumed_from_data_offset = self.decompress_entry_from_data_offset(
-                    delta.data_offset,
-                    inflate,
-                    &mut instructions[..delta.decompressed_size],
-                )?;
+                let consumed_from_data_offset = self
+                    .decompress_entry_from_data_offset(
+                        delta.data_offset,
+                        inflate,
+                        &mut instructions[..delta.decompressed_size],
+                    )
+                    .map_err(|e| Error::ZlibInflate(e.into_error()))?;
                 let is_last_delta_to_be_applied = delta_idx + 1 == chain_len;
                 if is_last_delta_to_be_applied {
                     consumed_input = Some(consumed_from_data_offset);
@@ -346,7 +348,8 @@ impl File {
                 debug_assert!(!base_entry.header.is_delta());
                 object_kind = base_entry.header.as_kind();
                 let out_base = &mut out[..out_size - total_delta_data_size];
-                self.decompress_entry_from_data_offset(base_entry.data_offset, inflate, out_base)?;
+                self.decompress_entry_from_data_offset(base_entry.data_offset, inflate, out_base)
+                    .map_err(|e| Error::ZlibInflate(e.into_error()))?;
             }
 
             (first_buffer_size, second_buffer_end)
