@@ -94,17 +94,13 @@ fn exclamation_marks_must_be_escaped_or_error_unlike_gitignore() {
         line(r"\!hello"),
         (pattern(r"!hello", Mode::NO_SUB_DIR, None), vec![], 1)
     );
-    assert!(matches!(
-        try_line(r"!hello"),
-        Err(parse::Error::PatternNegation { line_number: 1, .. })
-    ));
+    let err = try_line(r"!hello").unwrap_err();
+    assert!(err.to_string().contains("negative pattern"), "{err}");
     assert!(lenient_lines(r#"!hello"#).is_empty());
+    let err = try_line(r#""!hello""#).unwrap_err();
     assert!(
-        matches!(
-            try_line(r#""!hello""#),
-            Err(parse::Error::PatternNegation { line_number: 1, .. }),
-        ),
-        "even in quotes they trigger…"
+        err.to_string().contains("negative pattern"),
+        "even in quotes they trigger…: {err}"
     );
     assert!(lenient_lines(r#""!hello""#).is_empty());
     assert_eq!(
@@ -116,7 +112,8 @@ fn exclamation_marks_must_be_escaped_or_error_unlike_gitignore() {
 
 #[test]
 fn invalid_escapes_in_quotes_are_an_error() {
-    assert!(matches!(try_line(r#""\!hello""#), Err(parse::Error::Unquote(_))));
+    let err = try_line(r#""\!hello""#).unwrap_err();
+    assert!(err.to_string().contains("unquote"), "{err}");
     assert!(lenient_lines(r#""\!hello""#).is_empty());
 }
 
@@ -170,47 +167,33 @@ fn macros_can_be_empty() {
 
 #[test]
 fn custom_macros_must_be_valid_attribute_names() {
-    assert!(matches!(
-        try_line(r"[attr]-prefixdash"),
-        Err(parse::Error::MacroName { line_number: 1, .. })
-    ));
+    let err = try_line(r"[attr]-prefixdash").unwrap_err();
+    assert!(err.to_string().contains("Macro"), "{err}");
     assert!(lenient_lines(r"[attr]-prefixdash").is_empty());
-    assert!(matches!(
-        try_line(r"[attr]!exclamation"),
-        Err(parse::Error::MacroName { line_number: 1, .. })
-    ));
-    assert!(matches!(
-        try_line(r"[attr]assignment=value"),
-        Err(parse::Error::MacroName { line_number: 1, .. })
-    ));
-    assert!(matches!(
-        try_line(r"[attr]你好"),
-        Err(parse::Error::MacroName { line_number: 1, .. })
-    ));
+    let err = try_line(r"[attr]!exclamation").unwrap_err();
+    assert!(err.to_string().contains("Macro"), "{err}");
+    let err = try_line(r"[attr]assignment=value").unwrap_err();
+    assert!(err.to_string().contains("Macro"), "{err}");
+    let err = try_line(r"[attr]你好").unwrap_err();
+    assert!(err.to_string().contains("Macro"), "{err}");
     assert!(lenient_lines(r"[attr]你好").is_empty());
 }
 
 #[test]
 fn attribute_names_must_not_begin_with_dash_and_must_be_ascii_only() {
-    assert!(matches!(
-        try_line(r"p !-a"),
-        Err(parse::Error::AttributeName { line_number: 1, .. })
-    ));
+    let err = try_line(r"p !-a").unwrap_err();
+    assert!(err.to_string().contains("Attribute"), "{err}");
     assert!(lenient_lines(r"p !-a").is_empty());
+    let err = try_line(r#"p !!a"#).unwrap_err();
     assert!(
-        matches!(
-            try_line(r#"p !!a"#),
-            Err(parse::Error::AttributeName { line_number: 1, .. })
-        ),
-        "exclamation marks aren't allowed either"
+        err.to_string().contains("Attribute"),
+        "exclamation marks aren't allowed either: {err}"
     );
     assert!(lenient_lines(r#"p !!a"#).is_empty());
+    let err = try_line(r#"p 你好"#).unwrap_err();
     assert!(
-        matches!(
-            try_line(r#"p 你好"#),
-            Err(parse::Error::AttributeName { line_number: 1, .. })
-        ),
-        "nor is utf-8 encoded characters - gitoxide could consider to relax this when established"
+        err.to_string().contains("Attribute"),
+        "nor is utf-8 encoded characters - gitoxide could consider to relax this when established: {err}"
     );
     assert!(lenient_lines(r#"p 你好"#).is_empty());
 }
@@ -386,13 +369,11 @@ fn try_lines(input: &str) -> Result<Vec<ExpandedAttribute<'_>>, parse::Error> {
 fn expand(
     input: Result<(parse::Kind, parse::Iter<'_>, usize), parse::Error>,
 ) -> Result<ExpandedAttribute<'_>, parse::Error> {
+    use gix_error::ResultExt;
     let (pattern, attrs, line_no) = input?;
     let attrs = attrs
         .map(|r| r.map(|attr| (attr.name.as_str().into(), attr.state)))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| parse::Error::AttributeName {
-            attribute: e.attribute,
-            line_number: line_no,
-        })?;
+        .or_raise(|| gix_error::message!("Attribute in line {line_no} has non-ascii characters or starts with '-'"))?;
     Ok((pattern, attrs, line_no))
 }
