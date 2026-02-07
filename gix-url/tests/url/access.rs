@@ -3,27 +3,27 @@ mod canonicalized {
 
     #[test]
     fn non_file_scheme_is_noop() -> crate::Result {
-        let url = gix_url::parse("https://github.com/byron/gitoxide".into())?;
-        assert_eq!(url.canonicalized(&std::env::current_dir()?)?, url);
+        let url = gix_url::parse("https://github.com/byron/gitoxide".into()).map_err(|e| e.into_error())?;
+        assert_eq!(url.canonicalized(&std::env::current_dir()?).map_err(|e| e.into_error())?, url);
         Ok(())
     }
 
     #[test]
     fn absolute_file_url_does_nothing() -> crate::Result {
         #[cfg(not(windows))]
-        let url = gix_url::parse("/this/path/does/not/exist".into())?;
+        let url = gix_url::parse("/this/path/does/not/exist".into()).map_err(|e| e.into_error())?;
         #[cfg(windows)]
-        let url = gix_url::parse(r"C:\non\existing".into())?;
-        assert_eq!(url.canonicalized(&std::env::current_dir()?)?, url);
+        let url = gix_url::parse(r"C:\non\existing".into()).map_err(|e| e.into_error())?;
+        assert_eq!(url.canonicalized(&std::env::current_dir()?).map_err(|e| e.into_error())?, url);
         Ok(())
     }
 
     #[test]
     fn file_that_is_current_dir_is_absolutized() -> crate::Result {
-        let url = gix_url::parse(".".into())?;
+        let url = gix_url::parse(".".into()).map_err(|e| e.into_error())?;
         assert!(gix_path::from_bstr(Cow::Borrowed(url.path.as_ref())).is_relative());
         assert!(gix_path::from_bstr(Cow::Borrowed(
-            url.canonicalized(&std::env::current_dir()?)?.path.as_ref()
+            url.canonicalized(&std::env::current_dir()?).map_err(|e| e.into_error())?.path.as_ref()
         ))
         .is_absolute());
         Ok(())
@@ -34,7 +34,7 @@ use gix_url::ArgumentSafety;
 
 #[test]
 fn user() -> crate::Result {
-    let mut url = gix_url::parse("https://user:password@host/path".into())?;
+    let mut url = gix_url::parse("https://user:password@host/path".into()).map_err(|e| e.into_error())?;
 
     assert_eq!(url.user(), Some("user"));
     assert_eq!(url.set_user(Some("new-user".into())), Some("user".into()));
@@ -45,7 +45,7 @@ fn user() -> crate::Result {
 
 #[test]
 fn password() -> crate::Result {
-    let mut url = gix_url::parse("https://user:password@host/path".into())?;
+    let mut url = gix_url::parse("https://user:password@host/path".into()).map_err(|e| e.into_error())?;
 
     assert_eq!(url.password(), Some("password"));
     assert_eq!(url.set_password(Some("new-pass".into())), Some("password".into()));
@@ -56,12 +56,12 @@ fn password() -> crate::Result {
 
 #[test]
 fn mutation_roundtrip() -> crate::Result {
-    let mut url = gix_url::parse("https://user@host/path".into())?;
+    let mut url = gix_url::parse("https://user@host/path".into()).map_err(|e| e.into_error())?;
     url.set_user(Some("newuser".into()));
     url.set_password(Some("secret".into()));
 
     let serialized = url.to_bstring();
-    let reparsed = gix_url::parse(serialized.as_ref())?;
+    let reparsed = gix_url::parse(serialized.as_ref()).map_err(|e| e.into_error())?;
 
     assert_eq!(url, reparsed);
     assert_eq!(reparsed.user(), Some("newuser"));
@@ -73,10 +73,10 @@ fn mutation_roundtrip() -> crate::Result {
 #[test]
 fn from_bytes_roundtrip() -> crate::Result {
     let original = "https://user:password@example.com:8080/path/to/repo";
-    let url = gix_url::parse(original.into())?;
+    let url = gix_url::parse(original.into()).map_err(|e| e.into_error())?;
 
     let bytes = url.to_bstring();
-    let from_bytes = gix_url::Url::from_bytes(bytes.as_ref())?;
+    let from_bytes = gix_url::Url::from_bytes(bytes.as_ref()).map_err(|e| e.into_error())?;
 
     assert_eq!(url, from_bytes);
     assert_eq!(from_bytes.to_bstring(), bytes);
@@ -86,9 +86,9 @@ fn from_bytes_roundtrip() -> crate::Result {
 
 #[test]
 fn from_bytes_with_non_utf8_path() -> crate::Result {
-    let url = gix_url::parse(b"/path/to\xff/repo".as_slice().into())?;
+    let url = gix_url::parse(b"/path/to\xff/repo".as_slice().into()).map_err(|e| e.into_error())?;
     let bytes = url.to_bstring();
-    let from_bytes = gix_url::Url::from_bytes(bytes.as_ref())?;
+    let from_bytes = gix_url::Url::from_bytes(bytes.as_ref()).map_err(|e| e.into_error())?;
 
     assert_eq!(url, from_bytes);
     assert_eq!(from_bytes.path, url.path);
@@ -98,7 +98,7 @@ fn from_bytes_with_non_utf8_path() -> crate::Result {
 
 #[test]
 fn user_argument_safety() -> crate::Result {
-    let url = gix_url::parse("ssh://-Fconfigfile@foo/bar".into())?;
+    let url = gix_url::parse("ssh://-Fconfigfile@foo/bar".into()).map_err(|e| e.into_error())?;
 
     assert_eq!(url.user(), Some("-Fconfigfile"));
     assert_eq!(url.user_as_argument(), ArgumentSafety::Dangerous("-Fconfigfile"));
@@ -116,7 +116,7 @@ fn user_argument_safety() -> crate::Result {
 
 #[test]
 fn host_argument_safety() -> crate::Result {
-    let url = gix_url::parse("ssh://-oProxyCommand=open$IFS-aCalculator/foo".into())?;
+    let url = gix_url::parse("ssh://-oProxyCommand=open$IFS-aCalculator/foo".into()).map_err(|e| e.into_error())?;
 
     assert_eq!(url.user(), None);
     assert_eq!(url.user_as_argument(), ArgumentSafety::Absent);
@@ -141,7 +141,7 @@ fn host_argument_safety() -> crate::Result {
 
 #[test]
 fn path_argument_safety() -> crate::Result {
-    let url = gix_url::parse("ssh://foo/-oProxyCommand=open$IFS-aCalculator".into())?;
+    let url = gix_url::parse("ssh://foo/-oProxyCommand=open$IFS-aCalculator".into()).map_err(|e| e.into_error())?;
 
     assert_eq!(url.user(), None);
     assert_eq!(url.user_as_argument(), ArgumentSafety::Absent);
@@ -163,7 +163,7 @@ fn path_argument_safety() -> crate::Result {
 
 #[test]
 fn all_argument_safety_safe() -> crate::Result {
-    let url = gix_url::parse("ssh://user.name@example.com/path/to/file".into())?;
+    let url = gix_url::parse("ssh://user.name@example.com/path/to/file".into()).map_err(|e| e.into_error())?;
 
     assert_eq!(url.user(), Some("user.name"));
     assert_eq!(url.user_as_argument(), ArgumentSafety::Usable("user.name"));
@@ -182,7 +182,7 @@ fn all_argument_safety_safe() -> crate::Result {
 #[test]
 fn all_argument_safety_not_safe() -> crate::Result {
     let all_bad = "ssh://-Fconfigfile@-oProxyCommand=open$IFS-aCalculator/-oProxyCommand=open$IFS-aCalculator";
-    let url = gix_url::parse(all_bad.into())?;
+    let url = gix_url::parse(all_bad.into()).map_err(|e| e.into_error())?;
 
     assert_eq!(url.user(), Some("-Fconfigfile"));
     assert_eq!(url.user_as_argument(), ArgumentSafety::Dangerous("-Fconfigfile"));

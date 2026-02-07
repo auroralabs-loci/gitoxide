@@ -253,7 +253,7 @@ impl crate::Repository {
             .map(|res| res.map_err(Into::into))
             .or_else(|| match name {
                 remote::Name::Url(url) => gix_url::parse(url.as_ref())
-                    .map_err(Into::into)
+                    .map_err(|err| remote::find::existing::Error::UrlParse(err.into_error()))
                     .and_then(|url| {
                         self.remote_at(url)
                             .map_err(|err| remote::find::existing::Error::Find(remote::find::Error::Init(err)))

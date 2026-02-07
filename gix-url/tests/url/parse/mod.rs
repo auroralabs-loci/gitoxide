@@ -2,7 +2,7 @@ use bstr::{BStr, ByteSlice};
 use gix_url::{testing::TestUrlExtension, Scheme};
 
 fn assert_url(url: &str, expected: gix_url::Url) -> Result<gix_url::Url, crate::Error> {
-    let actual = gix_url::parse(url.into())?;
+    let actual = gix_url::parse(url.into()).map_err(|e| e.into_error())?;
     assert_eq!(actual, expected);
     if actual.scheme.as_str().starts_with("http") {
         assert!(

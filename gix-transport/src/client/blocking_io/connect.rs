@@ -19,9 +19,11 @@ pub(crate) mod function {
     pub fn connect<Url, E>(url: Url, options: super::Options) -> Result<Box<dyn Transport + Send>, Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
-        let mut url = url.try_into().map_err(gix_url::parse::Error::from)?;
+        let mut url = url.try_into().map_err(|err| {
+            Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
+        })?;
         Ok(match url.scheme {
             gix_url::Scheme::Ext(_) => return Err(Error::UnsupportedScheme(url.scheme)),
             gix_url::Scheme::File => {

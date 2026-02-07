@@ -10,12 +10,13 @@ mod error {
     #[allow(missing_docs)]
     pub enum Error {
         #[error(transparent)]
-        Url(#[from] gix_url::parse::Error),
+        Url(#[from] gix_error::Error),
         #[error("The rewritten {kind} url {rewritten_url:?} failed to parse")]
         RewrittenUrlInvalid {
             kind: &'static str,
             rewritten_url: BString,
-            source: gix_url::parse::Error,
+            #[source]
+            source: gix_error::Error,
         },
     }
 }
@@ -65,10 +66,12 @@ impl<'repo> Remote<'repo> {
     ) -> Result<Self, Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         Self::from_fetch_url_inner(
-            url.try_into().map_err(|err| Error::Url(err.into()))?,
+            url.try_into().map_err(|err| {
+                Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
+            })?,
             should_rewrite_urls,
             repo,
         )
@@ -110,7 +113,7 @@ pub(crate) fn rewrite_url(
                     remote::Direction::Fetch => "fetch",
                     remote::Direction::Push => "push",
                 },
-                source: err,
+                source: err.into_error(),
                 rewritten_url: url,
             })
         })

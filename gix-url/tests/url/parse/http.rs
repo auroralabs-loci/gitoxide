@@ -12,7 +12,7 @@ fn username_expansion_is_unsupported() -> crate::Result {
 
 #[test]
 fn empty_user_cannot_roundtrip() -> crate::Result {
-    let actual = gix_url::parse("http://@example.com/~byron/hello".into())?;
+    let actual = gix_url::parse("http://@example.com/~byron/hello".into()).map_err(|e| e.into_error())?;
     let expected = url(Scheme::Http, None, "example.com", None, b"/~byron/hello");
     assert_eq!(actual, expected);
     assert_eq!(
@@ -49,7 +49,7 @@ fn username_and_password_with_spaces_and_port() -> crate::Result {
         Some(8080),
         b"/~byron/hello".into(),
         false,
-    )?;
+    ).map_err(|e| e.into_error())?;
     assert_url_roundtrip(
         "http://user%20name:password%20secret@example.com:8080/~byron/hello",
         expected.clone(),
@@ -69,7 +69,7 @@ fn only_password() -> crate::Result {
 
 #[test]
 fn username_and_empty_password() -> crate::Result {
-    let actual = gix_url::parse("http://user:@example.com/~byron/hello".into())?;
+    let actual = gix_url::parse("http://user:@example.com/~byron/hello".into()).map_err(|e| e.into_error())?;
     let expected = url(Scheme::Http, "user", "example.com", None, b"/~byron/hello");
     assert_eq!(actual, expected);
     assert_eq!(
@@ -142,14 +142,14 @@ fn https_with_ipv6_user_and_port() -> crate::Result {
 
 #[test]
 fn percent_encoded_path() -> crate::Result {
-    let url = gix_url::parse("https://example.com/path/with%20spaces/file".into())?;
+    let url = gix_url::parse("https://example.com/path/with%20spaces/file".into()).map_err(|e| e.into_error())?;
     assert_eq!(url.path, "/path/with spaces/file", "paths are now decoded");
     Ok(())
 }
 
 #[test]
 fn percent_encoded_international_path() -> crate::Result {
-    let url = gix_url::parse("https://example.com/caf%C3%A9".into())?;
+    let url = gix_url::parse("https://example.com/caf%C3%A9".into()).map_err(|e| e.into_error())?;
     assert_eq!(url.path, "/café", "international characters are decoded in path");
     Ok(())
 }

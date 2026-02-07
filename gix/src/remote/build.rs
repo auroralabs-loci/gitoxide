@@ -8,10 +8,11 @@ impl Remote<'_> {
     pub fn with_url<Url, E>(self, url: Url) -> Result<Self, remote::init::Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.url_inner(
-            url.try_into().map_err(|err| remote::init::Error::Url(err.into()))?,
+            url.try_into()
+                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
             true,
         )
     }
@@ -23,10 +24,11 @@ impl Remote<'_> {
     pub fn with_url_without_url_rewrite<Url, E>(self, url: Url) -> Result<Self, remote::init::Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.url_inner(
-            url.try_into().map_err(|err| remote::init::Error::Url(err.into()))?,
+            url.try_into()
+                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
             false,
         )
     }
@@ -36,7 +38,7 @@ impl Remote<'_> {
     pub fn push_url<Url, E>(self, url: Url) -> Result<Self, remote::init::Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.with_push_url(url)
     }
@@ -45,10 +47,11 @@ impl Remote<'_> {
     pub fn with_push_url<Url, E>(self, url: Url) -> Result<Self, remote::init::Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.push_url_inner(
-            url.try_into().map_err(|err| remote::init::Error::Url(err.into()))?,
+            url.try_into()
+                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
             true,
         )
     }
@@ -59,7 +62,7 @@ impl Remote<'_> {
     pub fn push_url_without_url_rewrite<Url, E>(self, url: Url) -> Result<Self, remote::init::Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.with_push_url_without_url_rewrite(url)
     }
@@ -69,10 +72,11 @@ impl Remote<'_> {
     pub fn with_push_url_without_url_rewrite<Url, E>(self, url: Url) -> Result<Self, remote::init::Error>
     where
         Url: TryInto<gix_url::Url, Error = E>,
-        gix_url::parse::Error: From<E>,
+        E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.push_url_inner(
-            url.try_into().map_err(|err| remote::init::Error::Url(err.into()))?,
+            url.try_into()
+                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
             false,
         )
     }

@@ -322,7 +322,7 @@ mod url {
         /// Try to parse `value` as URL.
         pub fn try_into_url(&'static self, value: Cow<'_, BStr>) -> Result<gix_url::Url, config::url::Error> {
             gix_url::parse(value.as_ref())
-                .map_err(|err| config::url::Error::from_value(self, value.into_owned()).with_source(err))
+                .map_err(|err| config::url::Error::from_value(self, value.into_owned()).with_source(err.into_error()))
         }
     }
 }
@@ -594,7 +594,7 @@ pub mod validate {
     pub struct Url;
     impl Validate for Url {
         fn validate(&self, value: &BStr) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-            gix_url::parse(value)?;
+            gix_url::parse(value).map_err(gix_error::Exn::into_error)?;
             Ok(())
         }
     }
