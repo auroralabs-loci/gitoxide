@@ -1,5 +1,5 @@
 use bstr::{BStr, BString};
-use gix_path::{relative_path::Error, RelativePath};
+use gix_path::RelativePath;
 
 #[cfg(not(windows))]
 #[test]
@@ -10,26 +10,20 @@ fn absolute_paths_return_err() {
     let path_u8: &[u8] = &b"/refs/heads"[..];
     let path_bstring: BString = "/refs/heads".into();
 
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_str),
-        Err(Error::IsAbsolute)
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_bstr),
-        Err(Error::IsAbsolute)
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_u8),
-        Err(Error::IsAbsolute)
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_u8a),
-        Err(Error::IsAbsolute)
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(&path_bstring),
-        Err(Error::IsAbsolute)
-    ));
+    let err = TryInto::<&RelativePath>::try_into(path_str).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_bstr).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_u8).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_u8a).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(&path_bstring).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
 }
 
 #[cfg(windows)]
@@ -40,22 +34,17 @@ fn absolute_paths_with_backslashes_return_err() {
     let path_u8: &[u8] = &b"c:\\refs\\heads"[..];
     let path_bstring: BString = r"c:\refs\heads".into();
 
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_str),
-        Err(Error::IsAbsolute)
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_bstr),
-        Err(Error::IsAbsolute)
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_u8),
-        Err(Error::IsAbsolute)
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(&path_bstring),
-        Err(Error::IsAbsolute)
-    ));
+    let err = TryInto::<&RelativePath>::try_into(path_str).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_bstr).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_u8).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(&path_bstring).unwrap_err();
+    assert!(err.to_string().contains("not allowed to be absolute"), "{err}");
 }
 
 #[test]
@@ -65,22 +54,17 @@ fn dots_in_paths_return_err() {
     let path_u8: &[u8] = &b"./heads"[..];
     let path_bstring: BString = "./heads".into();
 
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_str),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_bstr),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_u8),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(&path_bstring),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
+    let err = TryInto::<&RelativePath>::try_into(path_str).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_bstr).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_u8).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(&path_bstring).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
 }
 
 #[test]
@@ -90,22 +74,17 @@ fn dots_in_paths_with_backslashes_return_err() {
     let path_u8: &[u8] = &b".\\heads"[..];
     let path_bstring: BString = r".\heads".into();
 
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_str),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_bstr),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_u8),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(&path_bstring),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
+    let err = TryInto::<&RelativePath>::try_into(path_str).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_bstr).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_u8).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(&path_bstring).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
 }
 
 #[test]
@@ -115,22 +94,17 @@ fn double_dots_in_paths_return_err() {
     let path_u8: &[u8] = &b"../heads"[..];
     let path_bstring: BString = "../heads".into();
 
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_str),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_bstr),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_u8),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(&path_bstring),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
+    let err = TryInto::<&RelativePath>::try_into(path_str).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_bstr).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_u8).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(&path_bstring).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
 }
 
 #[test]
@@ -140,20 +114,15 @@ fn double_dots_in_paths_with_backslashes_return_err() {
     let path_u8: &[u8] = &b"..\\heads"[..];
     let path_bstring: BString = r"..\heads".into();
 
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_str),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_bstr),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(path_u8),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
-    assert!(matches!(
-        TryInto::<&RelativePath>::try_into(&path_bstring),
-        Err(Error::ContainsInvalidComponent(_))
-    ));
+    let err = TryInto::<&RelativePath>::try_into(path_str).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_bstr).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(path_u8).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
+
+    let err = TryInto::<&RelativePath>::try_into(&path_bstring).unwrap_err();
+    assert!(err.to_string().contains("invalid component"), "{err}");
 }
