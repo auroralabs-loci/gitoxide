@@ -137,12 +137,12 @@ where
         if self.pos >= self.cap {
             let (ofs, cap) = loop {
                 let line = match self.parent.read_line() {
-                    Some(line) => line?.map_err(io::Error::other)?,
+                    Some(line) => line?.map_err(|e| io::Error::other(e.into_error()))?,
                     None => break (0, 0),
                 };
                 match self.handle_progress.as_mut() {
                     Some(handle_progress) => {
-                        let band = line.decode_band().map_err(io::Error::other)?;
+                        let band = line.decode_band().map_err(|e| io::Error::other(e.into_error()))?;
                         const ENCODED_BAND: usize = 1;
                         match band {
                             BandRef::Data(d) => {
