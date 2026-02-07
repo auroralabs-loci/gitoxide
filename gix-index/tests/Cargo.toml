@@ -19,6 +19,7 @@ path = "integrate.rs"
 gix-features-parallel = ["gix-features/parallel"]
 
 [dev-dependencies]
+gix-error = { version = "^0.0.0", path = "../../gix-error" }
 gix-index = { path = ".." }
 gix-features = { path = "../../gix-features", features = ["progress"] }
 gix-testtools = { path = "../../tests/tools" }

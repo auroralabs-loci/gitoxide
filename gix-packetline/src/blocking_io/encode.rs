@@ -3,9 +3,8 @@ use std::io;
 use gix_error::ErrorExt;
 
 use crate::{
-    encode::u16_to_hex,
-    BandRef, Channel, ErrorRef, PacketLineRef, TextRef, DELIMITER_LINE, ERR_PREFIX, FLUSH_LINE, MAX_DATA_LEN,
-    RESPONSE_END_LINE,
+    encode::u16_to_hex, BandRef, Channel, ErrorRef, PacketLineRef, TextRef, DELIMITER_LINE, ERR_PREFIX, FLUSH_LINE,
+    MAX_DATA_LEN, RESPONSE_END_LINE,
 };
 
 /// Write a response-end message to `out`.
@@ -96,9 +95,7 @@ fn prefixed_and_suffixed_data_to_write(
     }
     if data.is_empty() {
         return Err(io::Error::other(
-            gix_error::message("Empty lines are invalid")
-                .raise()
-                .into_error(),
+            gix_error::message("Empty lines are invalid").raise().into_error(),
         ));
     }
 

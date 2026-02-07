@@ -46,20 +46,15 @@ impl Decompress {
             FlushDecompress::Finish => zlib_rs::InflateFlush::Finish,
         };
 
-        let status = self
-            .0
-            .decompress(input, output, inflate_flush)
-            .map_err(|e| {
-                match e {
-                    zlib_rs::InflateError::NeedDict { .. } => {
-                        message("Decompressing this input requires a dictionary")
-                    }
-                    zlib_rs::InflateError::StreamError => message("stream error"),
-                    zlib_rs::InflateError::DataError => message("Invalid input data"),
-                    zlib_rs::InflateError::MemError => message("Not enough memory"),
-                }
-                .raise()
-            })?;
+        let status = self.0.decompress(input, output, inflate_flush).map_err(|e| {
+            match e {
+                zlib_rs::InflateError::NeedDict { .. } => message("Decompressing this input requires a dictionary"),
+                zlib_rs::InflateError::StreamError => message("stream error"),
+                zlib_rs::InflateError::DataError => message("Invalid input data"),
+                zlib_rs::InflateError::MemError => message("Not enough memory"),
+            }
+            .raise()
+        })?;
         match status {
             zlib_rs::Status::Ok => Ok(Status::Ok),
             zlib_rs::Status::BufError => Ok(Status::BufError),

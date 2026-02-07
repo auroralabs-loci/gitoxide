@@ -23,9 +23,18 @@ impl Prefix {
     /// wide, with all other bytes and bits set to zero.
     pub fn new(id: &oid, hex_len: usize) -> Result<Self, Error> {
         if hex_len > id.kind().len_in_hex() {
-            Err(gix_error::message!("An object of kind {} cannot be larger than {} in hex, but {hex_len} was requested", id.kind(), id.kind().len_in_hex()).raise())
+            Err(gix_error::message!(
+                "An object of kind {} cannot be larger than {} in hex, but {hex_len} was requested",
+                id.kind(),
+                id.kind().len_in_hex()
+            )
+            .raise())
         } else if hex_len < Self::MIN_HEX_LEN {
-            Err(gix_error::message!("The minimum hex length of a short object id is {}, got {hex_len}", Self::MIN_HEX_LEN).raise())
+            Err(gix_error::message!(
+                "The minimum hex length of a short object id is {}, got {hex_len}",
+                Self::MIN_HEX_LEN
+            )
+            .raise())
         } else {
             let mut prefix = ObjectId::null(id.kind());
             let b = prefix.as_mut_slice();
@@ -74,7 +83,11 @@ impl Prefix {
     pub fn from_hex(value: &str) -> Result<Self, from_hex::Error> {
         let hex_len = value.len();
         if hex_len < Self::MIN_HEX_LEN {
-            return Err(gix_error::message!("The minimum hex length of a short object id is {}, got {hex_len}", Self::MIN_HEX_LEN).raise());
+            return Err(gix_error::message!(
+                "The minimum hex length of a short object id is {}, got {hex_len}",
+                Self::MIN_HEX_LEN
+            )
+            .raise());
         }
         Self::from_hex_nonempty(value)
     }
@@ -85,9 +98,17 @@ impl Prefix {
         let hex_len = value.len();
 
         if hex_len > crate::Kind::longest().len_in_hex() {
-            return Err(gix_error::message!("An id cannot be larger than {} chars in hex, but {hex_len} was requested", crate::Kind::longest().len_in_hex()).raise());
+            return Err(gix_error::message!(
+                "An id cannot be larger than {} chars in hex, but {hex_len} was requested",
+                crate::Kind::longest().len_in_hex()
+            )
+            .raise());
         } else if hex_len == 0 {
-            return Err(gix_error::message!("The minimum hex length of a short object id is {}, got {hex_len}", Self::MIN_HEX_LEN).raise());
+            return Err(gix_error::message!(
+                "The minimum hex length of a short object id is {}, got {hex_len}",
+                Self::MIN_HEX_LEN
+            )
+            .raise());
         }
 
         let src = if value.len() % 2 == 0 {
@@ -103,7 +124,9 @@ impl Prefix {
             faster_hex::hex_decode(src, &mut out).map(move |_| out)
         }
         .map_err(|e| match e {
-            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => gix_error::message("Invalid hex character").raise(),
+            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => {
+                gix_error::message("Invalid hex character").raise()
+            }
             faster_hex::Error::InvalidLength(_) => panic!("This is already checked"),
         })?;
 

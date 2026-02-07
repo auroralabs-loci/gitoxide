@@ -18,6 +18,7 @@ path = "diff/main.rs"
 
 [dev-dependencies]
 gix-diff = { path = "..", features = ["blob-experimental"] }
+gix-error = { version = "^0.0.0", path = "../../gix-error" }
 gix-index = { path = "../../gix-index" }
 gix-pathspec = { path = "../../gix-pathspec" }
 gix-hash = { path = "../../gix-hash" }

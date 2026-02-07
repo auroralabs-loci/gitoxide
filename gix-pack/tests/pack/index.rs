@@ -26,7 +26,7 @@ mod version {
                 (b"ffffffffffffffffffffffffffffffffffffffff", None, "not in pack"),
             ] {
                 assert_eq!(
-                    file.lookup(gix_hash::ObjectId::from_hex(id)?),
+                    file.lookup(gix_hash::ObjectId::from_hex(id).map_err(gix_error::Exn::into_error)?),
                     *desired_index,
                     "{assertion}",
                 );
@@ -39,7 +39,7 @@ mod version {
                     assert_eq!(entry.crc32, file.crc32_at_index(index));
 
                     let hex_len = (entry_index % object_hash.len_in_hex()).max(7);
-                    let prefix = gix_hash::Prefix::new(&entry.oid, hex_len)?;
+                    let prefix = gix_hash::Prefix::new(&entry.oid, hex_len).map_err(gix_error::Exn::into_error)?;
                     assert_eq!(
                         file.lookup_prefix(prefix, candidates.as_mut())
                             .expect("object exists")
@@ -70,10 +70,10 @@ mod version {
                 (b"ffffffffffffffffffffffffffffffffffffffff", None, "not in pack", 7),
             ] {
                 for mut candidates in [None, Some(1..1)] {
-                    let id = gix_hash::ObjectId::from_hex(id)?;
+                    let id = gix_hash::ObjectId::from_hex(id).map_err(gix_error::Exn::into_error)?;
                     assert_eq!(file.lookup(id), expected, "{assertion_message}");
                     assert_eq!(
-                        file.lookup_prefix(gix_hash::Prefix::new(&id, hex_len)?, candidates.as_mut()),
+                        file.lookup_prefix(gix_hash::Prefix::new(&id, hex_len).map_err(gix_error::Exn::into_error)?, candidates.as_mut()),
                         expected.map(Ok)
                     );
                     if let Some(candidates) = candidates {
@@ -92,7 +92,7 @@ mod version {
                     assert_eq!(entry.crc32, file.crc32_at_index(index), "{index} {entry:?}");
 
                     let hex_len = (entry_index % object_hash.len_in_hex()).max(7);
-                    let prefix = gix_hash::Prefix::new(&entry.oid, hex_len)?;
+                    let prefix = gix_hash::Prefix::new(&entry.oid, hex_len).map_err(gix_error::Exn::into_error)?;
                     assert_eq!(
                         file.lookup_prefix(prefix, candidates.as_mut())
                             .expect("object exists")

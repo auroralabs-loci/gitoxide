@@ -362,7 +362,7 @@ fn bogus_multi_gpgsig_header() -> crate::Result {
 
     let mut buf = Vec::<u8>::new();
     commit.write_to(&mut buf)?;
-    let actual = gix_object::compute_hash(gix_hash::Kind::Sha1, gix_object::Kind::Commit, &buf)?;
+    let actual = gix_object::compute_hash(gix_hash::Kind::Sha1, gix_object::Kind::Commit, &buf).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         actual,
         hex_to_id("5f549aa2f78314ac37bbd436c8f80aea4c752e07"),

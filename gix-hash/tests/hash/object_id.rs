@@ -22,10 +22,7 @@ mod from_hex {
         #[test]
         fn non_hex_characters() {
             let err = ObjectId::from_hex(b"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz").unwrap_err();
-            assert!(
-                err.to_string().contains("Invalid character encountered"),
-                "got: {err}"
-            );
+            assert!(err.to_string().contains("Invalid character encountered"), "got: {err}");
         }
 
         #[test]

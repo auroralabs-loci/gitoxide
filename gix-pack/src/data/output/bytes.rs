@@ -123,12 +123,7 @@ where
                 }
             }
             None => {
-                let digest = self
-                    .output
-                    .hash
-                    .clone()
-                    .try_finalize()
-                    .map_err(|e| e.into_error())?;
+                let digest = self.output.hash.clone().try_finalize().map_err(gix_error::Exn::into_error)?;
                 self.output
                     .inner
                     .write_all(digest.as_slice())

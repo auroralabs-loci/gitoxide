@@ -14,7 +14,12 @@ impl oid {
         if self == expected {
             Ok(())
         } else {
-            Err(gix_error::message!("Hash was {}, but should have been {}", self.to_owned(), expected.to_owned()).raise())
+            Err(gix_error::message!(
+                "Hash was {}, but should have been {}",
+                self.to_owned(),
+                expected.to_owned()
+            )
+            .raise())
         }
     }
 }

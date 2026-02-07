@@ -79,11 +79,7 @@ pub fn undo(input: &BStr) -> Result<(Cow<'_, BStr>, usize), undo::Error> {
                                 input = &input[2..];
                                 consumed += 2;
                             }
-                            _ => {
-                                return Err(
-                                    message!("Invalid escaped value {next} in input {original:?}").raise()
-                                )
-                            }
+                            _ => return Err(message!("Invalid escaped value {next} in input {original:?}").raise()),
                         }
                     }
                     _ => unreachable!("cannot find character that we didn't search for"),

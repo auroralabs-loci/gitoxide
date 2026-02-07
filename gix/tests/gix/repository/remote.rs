@@ -183,7 +183,7 @@ mod find_remote {
                 "the default value as it's not specified"
             );
 
-            let url = gix::url::parse(url.into())?;
+            let url = gix::url::parse(url.into()).map_err(gix_error::Exn::into_error)?;
             assert_eq!(remote.url(Direction::Fetch).expect("present"), &url);
 
             assert_eq!(

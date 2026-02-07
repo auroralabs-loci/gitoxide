@@ -196,7 +196,7 @@ fn scp_like_with_windows_path() -> crate::Result {
 
 #[test]
 fn scp_like_with_windows_path_and_port_thinks_port_is_part_of_path() -> crate::Result {
-    let url = gix_url::parse("user@host.xz:42:C:/strange/absolute/path".into()).map_err(|e| e.into_error())?;
+    let url = gix_url::parse("user@host.xz:42:C:/strange/absolute/path".into()).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         url.to_bstring(),
         "user@host.xz:42:C:/strange/absolute/path",

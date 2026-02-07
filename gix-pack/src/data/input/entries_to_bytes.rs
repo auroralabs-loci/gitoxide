@@ -87,15 +87,10 @@ where
         Ok(entry)
     }
 
-    fn write_header_and_digest(
-        &mut self,
-        last_entry: Option<&mut input::Entry>,
-    ) -> Result<(), gix_error::Error> {
+    fn write_header_and_digest(&mut self, last_entry: Option<&mut input::Entry>) -> Result<(), gix_error::Error> {
         let header_bytes = crate::data::header::encode(self.data_version, self.num_entries);
         let num_bytes_written = if last_entry.is_some() {
-            self.output
-                .stream_position()
-                .map_err(gix_error::Error::from_error)?
+            self.output.stream_position().map_err(gix_error::Error::from_error)?
         } else {
             header_bytes.len() as u64
         };
@@ -114,7 +109,7 @@ where
             &mut gix_features::progress::Discard,
             &interrupt_never,
         )
-        .map_err(|e| e.into_error())?;
+        .map_err(gix_error::Exn::into_error)?;
         self.output
             .write_all(digest.as_slice())
             .map_err(gix_error::Error::from_error)?;

@@ -146,7 +146,7 @@ mod function {
             .inner
             .into_inner()
             .map_err(|e| gix_error::Error::from_error(io::Error::from(e)))?;
-        let index_hash = out.hash.try_finalize().map_err(|e| e.into_error())?;
+        let index_hash = out.hash.try_finalize().map_err(gix_error::Exn::into_error)?;
         out.inner
             .write_all(index_hash.as_slice())
             .map_err(gix_error::Error::from_error)?;

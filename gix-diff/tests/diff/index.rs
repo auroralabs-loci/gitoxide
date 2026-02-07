@@ -333,10 +333,10 @@ fn renames_by_similarity_with_limit() -> crate::Result {
     assert_eq!(
         actual_ids,
         [
-            gix_hash::ObjectId::from_str("f00c965d8307308469e537302baa73048488f162")?,
-            gix_hash::ObjectId::from_str("683cfcc0f47566c332aa45d81c5cc98acb4aab49")?,
-            gix_hash::ObjectId::from_str("3bb459b831ea471b9cd1cbb7c6d54a74251a711b")?,
-            gix_hash::ObjectId::from_str("0a805f8e02d72bd354c1f00607906de2e49e00d6")?,
+            gix_hash::ObjectId::from_str("f00c965d8307308469e537302baa73048488f162").map_err(gix_error::Exn::into_error)?,
+            gix_hash::ObjectId::from_str("683cfcc0f47566c332aa45d81c5cc98acb4aab49").map_err(gix_error::Exn::into_error)?,
+            gix_hash::ObjectId::from_str("3bb459b831ea471b9cd1cbb7c6d54a74251a711b").map_err(gix_error::Exn::into_error)?,
+            gix_hash::ObjectId::from_str("0a805f8e02d72bd354c1f00607906de2e49e00d6").map_err(gix_error::Exn::into_error)?,
         ]
     );
 
@@ -1342,7 +1342,7 @@ mod util {
             let hex_id = std::fs::read_to_string(&tree_id_path).map_err(|err| {
                 std::io::Error::other(format!("Could not read '{}': {}", tree_id_path.display(), err))
             })?;
-            let tree_id = gix_hash::ObjectId::from_hex(hex_id.trim().as_bytes())?;
+            let tree_id = gix_hash::ObjectId::from_hex(hex_id.trim().as_bytes()).map_err(gix_error::Exn::into_error)?;
             Ok(gix_index::State::from_tree(&tree_id, odb, Default::default())?)
         }
     }

@@ -115,12 +115,11 @@ fn parse_line(line: &BStr, line_number: usize) -> Option<Result<(Kind, Iter<'_>,
     }
 
     let (line, attrs): (Cow<'_, _>, _) = if line.starts_with(b"\"") {
-        let (unquoted, consumed) = match gix_quote::ansi_c::undo(line)
-            .or_raise(|| message("Could not unquote attributes line"))
-        {
-            Ok(res) => res,
-            Err(err) => return Some(Err(err)),
-        };
+        let (unquoted, consumed) =
+            match gix_quote::ansi_c::undo(line).or_raise(|| message("Could not unquote attributes line")) {
+                Ok(res) => res,
+                Err(err) => return Some(Err(err)),
+            };
         (unquoted, &line[consumed..])
     } else {
         line.find_byteset(BLANKS)
@@ -135,7 +134,11 @@ fn parse_line(line: &BStr, line_number: usize) -> Option<Result<(Kind, Iter<'_>,
         None => {
             let pattern = gix_glob::Pattern::from_bytes(line.as_ref())?;
             if pattern.mode.contains(gix_glob::pattern::Mode::NEGATIVE) {
-                Err(gix_error::message!(r"Line {line_number} has a negative pattern, for literal characters use \!: {}", line).raise())
+                Err(gix_error::message!(
+                    r"Line {line_number} has a negative pattern, for literal characters use \!: {}",
+                    line
+                )
+                .raise())
             } else {
                 Ok(Kind::Pattern(pattern))
             }

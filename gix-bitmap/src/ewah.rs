@@ -6,8 +6,8 @@ pub mod decode {
 
 /// Decode `data` as EWAH bitmap.
 pub fn decode(data: &[u8]) -> Result<(Vec, &[u8]), decode::Error> {
-    use gix_error::{message, OptionExt};
     use crate::decode;
+    use gix_error::{message, OptionExt};
 
     let (num_bits, data) = decode::u32(data).ok_or_raise(|| message("eof reading amount of bits"))?;
     let (len, data) = decode::u32(data).ok_or_raise(|| message("eof reading chunk length"))?;

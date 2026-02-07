@@ -25,7 +25,7 @@ fn from_empty_cursor() -> crate::Result {
         .remove(["with-subdir", "dir", "file"])?
         .remove(Some("with-subdir2"))?
         .remove(Some("with-subdir2"))?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "e2339a3f62e2f3fc54a406739a62a4173ee3b5ac
@@ -48,7 +48,7 @@ fn from_empty_cursor() -> crate::Result {
         }),
     );
 
-    let actual = edit.write(&mut write)?;
+    let actual = edit.write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "76e0729de84047d19711d90cfcbb4e60bb432682
@@ -65,7 +65,7 @@ fn from_empty_cursor() -> crate::Result {
     );
 
     let mut cursor = edit.cursor_at(cursor_path)?;
-    let actual = cursor.remove(Some("empty-dir-via-cursor"))?.write(&mut write)?;
+    let actual = cursor.remove(Some("empty-dir-via-cursor"))?.write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(actual, empty_tree(), "it keeps the empty tree like the editor would");
     assert_eq!(
         edit.get(["some", "deeply", "nested", "path"]),
@@ -82,7 +82,7 @@ fn from_empty_cursor() -> crate::Result {
         "but the removed entry is indee removed"
     );
 
-    let actual = edit.write(&mut write)?;
+    let actual = edit.write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "6cc592046dcaac06d3c619b4892d9ac78738fb5d
@@ -98,7 +98,7 @@ fn from_empty_cursor() -> crate::Result {
     let actual = cursor
         .upsert(Some("root-file"), EntryKind::BlobExecutable, any_blob())?
         .upsert(["nested", "from"], EntryKind::BlobExecutable, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
 
     assert_eq!(
         display_tree(actual, &storage),
@@ -110,7 +110,7 @@ fn from_empty_cursor() -> crate::Result {
         "it is able to write the sub-tree, even though names from the top-level tree are re-used"
     );
 
-    let actual = edit.write(&mut write)?;
+    let actual = edit.write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "8febb45a1c34e405d70a7ae059d57abdd8254063
@@ -148,7 +148,7 @@ fn from_existing_cursor() -> crate::Result {
         .remove(Some("file.toml"))?
         .remove(Some("file.toml.bin"))?
         .upsert(["some", "nested", "file"], EntryKind::Blob, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         num_writes_and_clear(),
         1 + 2,
@@ -170,7 +170,7 @@ fn from_existing_cursor() -> crate::Result {
     let actual = cursor
         .upsert(Some("hello-from-cursor"), EntryKind::Blob, any_blob())?
         .remove(Some("file"))?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree_with_odb(actual, &storage, &odb),
         "0f090b7c09c94f7895d0d8ce63c1da7693c026b3
@@ -186,7 +186,7 @@ fn from_existing_cursor() -> crate::Result {
         .remove(Some("file.toml"))?
         .remove(Some("file.toml.bin"))?
         .upsert(["some", "nested", "file"], EntryKind::Blob, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree_with_odb(actual, &storage, &odb),
         "10364deb76aeee372eb486c1216dca2a98dbd379
@@ -199,7 +199,7 @@ fn from_existing_cursor() -> crate::Result {
 ",
         "this cursor is the same as the editor"
     );
-    let actual = cursor.remove(["some", "nested", "file"])?.write(&mut write)?;
+    let actual = cursor.remove(["some", "nested", "file"])?.write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree_with_odb(actual, &storage, &odb),
         "6e2806ab1e4d4ae2c9d24ce113a9bb54f8eff97b
@@ -221,7 +221,7 @@ fn from_empty_removal() -> crate::Result {
     let actual = edit
         .remove(Some("non-existing"))?
         .remove(["still", "does", "not", "exist"])?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(actual, empty_tree(), "nothing was actually done");
     assert_eq!(num_writes_and_clear(), 1, "it has to write the empty tree though");
     assert_eq!(storage.borrow().len(), 1, "the empty tree ends up in storage, too");
@@ -237,7 +237,7 @@ fn from_empty_removal() -> crate::Result {
         .remove(Some("with-subdir"))?
         .remove(["with-subdir2", "dir"])?
         .remove(Some("with-subdir2"))?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(actual, empty_tree(), "nothing was actually done");
     assert_eq!(num_writes_and_clear(), 1, "still nothing to write but the empty tree");
     assert_eq!(odb.access_count_and_clear(), 0);
@@ -247,7 +247,7 @@ fn from_empty_removal() -> crate::Result {
         .upsert(Some("empty-dir"), EntryKind::Tree, empty_tree())?
         .upsert(["with-subdir", "dir", "file"], EntryKind::Blob, any_blob())?
         .upsert(["with-subdir2", "dir", "file"], EntryKind::Blob, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "9e608223b4cbc733abd20fb6d5b8ea80b074be17
@@ -270,7 +270,7 @@ fn from_empty_removal() -> crate::Result {
         .remove(Some("with-subdir"))?
         .remove(["with-subdir2", "dir"])?
         .remove(Some("with-subdir2"))?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(actual, empty_tree(), "everything was removed, leaving nothing");
     assert_eq!(num_writes_and_clear(), 1, "only the empty tree to write");
     assert_eq!(
@@ -283,7 +283,7 @@ fn from_empty_removal() -> crate::Result {
         .upsert(["with-subdir", "file"], EntryKind::Blob, any_blob())?
         .upsert(["with-subdir", "dir", "file"], EntryKind::Blob, any_blob())?
         .remove(["with-subdir", "dir"])?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "da2277079f7e9e5a012c9a03d1aac710866ee2c5
@@ -315,7 +315,7 @@ fn from_existing_remove() -> crate::Result {
         .remove(Some("bin.d"))?
         .remove(Some("file.toml.bin"))?
         .remove(Some("file.0"))?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree_with_odb(actual, &storage, &odb),
         "dfd0d048f8e852879ad8e1a6a9b810873de16a9c
@@ -337,12 +337,12 @@ fn from_existing_remove() -> crate::Result {
         .remove(Some("file.to"))?
         .remove(Some("file.toml"))?
         .remove(Some("file0"))?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(actual, empty_tree(), "nothing is left");
     assert_eq!(num_writes_and_clear(), 1, "only the empty tree is written");
     assert_eq!(odb.access_count_and_clear(), 0);
 
-    let actual = edit.set_root(root_tree).remove(["file", "a"])?.write(&mut write)?;
+    let actual = edit.set_root(root_tree).remove(["file", "a"])?.write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(num_writes_and_clear(), 1, "it writes the changed root-tree");
     assert_eq!(
         odb.access_count_and_clear(),
@@ -404,7 +404,7 @@ fn from_empty_invalid_write() -> crate::Result {
         .remove(Some("a"))?
         .remove(Some("with\0null"))?
         .upsert(Some("works"), EntryKind::Blob, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "d5b913c39b06507c7c64adb16c268ce1102ef5c1
@@ -532,7 +532,7 @@ fn from_empty_add() -> crate::Result {
     assert_eq!(num_writes_and_clear(), 4);
     assert_eq!(odb.access_count_and_clear(), 0);
 
-    let actual = edit.upsert(["x"], EntryKind::Blob, any_blob())?.write(&mut write)?;
+    let actual = edit.upsert(["x"], EntryKind::Blob, any_blob())?.write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "c2bb1616d4db21d99a30a1219d7d47e969f42e26
@@ -548,7 +548,7 @@ fn from_empty_add() -> crate::Result {
     let prev_tree = actual;
     let actual = edit
         .upsert(["a", "b", "c"], EntryKind::BlobExecutable, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(actual, prev_tree, "writing the same path again is a no-op");
     assert_eq!(
         num_writes_and_clear(),
@@ -578,7 +578,7 @@ fn from_empty_add() -> crate::Result {
         .set_root(Tree::default())
         .upsert(["a", "b", "c"], EntryKind::Blob, any_blob())?
         .upsert(["a"], EntryKind::BlobExecutable, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "f7b85940c3afa596829cacf98e98ff8bfd7c68ed
@@ -597,7 +597,7 @@ fn from_empty_add() -> crate::Result {
         .upsert(["a", "b"], EntryKind::Tree, empty_tree())?
         .upsert(["a", "b", "c"], EntryKind::BlobExecutable, any_blob())?
         // .upsert(["a", "b", "d"], EntryKind::Blob, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         display_tree(actual, &storage),
         "d8d3f558776965f70452625b72363234f517b290
@@ -721,7 +721,7 @@ fn from_existing_add() -> crate::Result {
         .upsert(["a", "b", "c"], EntryKind::Blob, any_blob())?
         .upsert(["a", "b"], EntryKind::Blob, any_blob())?
         .upsert(["file"], EntryKind::BlobExecutable, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(odb.access_count_and_clear(), 2, "`a` and `a/b`");
     assert_eq!(
         display_tree_with_odb(actual, &storage, &odb),
@@ -746,7 +746,7 @@ fn from_existing_add() -> crate::Result {
     let actual = edit
         .set_root(root_tree)
         .upsert(["file", "subdir", "exe"], EntryKind::BlobExecutable, any_blob())?
-        .write(&mut write)?;
+        .write(&mut write).map_err(gix_error::Exn::into_error)?;
     assert_eq!(
         odb.access_count_and_clear(),
         1,
@@ -779,6 +779,7 @@ mod utils {
     };
 
     use bstr::{BStr, ByteSlice};
+    use gix_error::ResultExt;
     use gix_hash::ObjectId;
     use gix_object::{Tree, WriteTo};
 
@@ -810,7 +811,7 @@ mod utils {
             let mut buf = Vec::with_capacity(512);
             move |tree: &Tree| {
                 buf.clear();
-                tree.write_to(&mut buf)?;
+                tree.write_to(&mut buf).or_raise(|| gix_error::message("write tree to buffer"))?;
                 let id = gix_object::compute_hash(gix_hash::Kind::Sha1, gix_object::Kind::Tree, &buf)?;
                 store.borrow_mut().insert(id, tree.clone());
                 let old = num_writes.get();

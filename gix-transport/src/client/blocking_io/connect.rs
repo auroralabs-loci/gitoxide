@@ -21,9 +21,9 @@ pub(crate) mod function {
         Url: TryInto<gix_url::Url, Error = E>,
         E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
-        let mut url = url.try_into().map_err(|err| {
-            Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
-        })?;
+        let mut url = url
+            .try_into()
+            .map_err(|err| Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?;
         Ok(match url.scheme {
             gix_url::Scheme::Ext(_) => return Err(Error::UnsupportedScheme(url.scheme)),
             gix_url::Scheme::File => {

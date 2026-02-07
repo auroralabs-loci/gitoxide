@@ -221,7 +221,10 @@ pub(in crate::handshake::refs) fn parse_v2(line: &BStr) -> Result<Ref, Error> {
                         }
                         match attribute {
                             b"peeled" => {
-                                peeled = Some(gix_hash::ObjectId::from_hex(value.as_bytes()).map_err(|e| Error::Id(e.into_error()))?);
+                                peeled = Some(
+                                    gix_hash::ObjectId::from_hex(value.as_bytes())
+                                        .map_err(|e| Error::Id(e.into_error()))?,
+                                );
                             }
                             b"symref-target" => {
                                 symref_target = Some(value);

@@ -69,8 +69,7 @@ impl<'a> TryFrom<&'a BStr> for &'a RelativePath {
     type Error = Error;
 
     fn try_from(value: &'a BStr) -> Result<Self, Self::Error> {
-        let path = try_from_bstr(value)
-            .or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
+        let path = try_from_bstr(value).or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
         relative_path_from_value_and_path(value, &path)
     }
 }
@@ -80,8 +79,7 @@ impl<'a> TryFrom<&'a [u8]> for &'a RelativePath {
 
     #[inline]
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-        let path = try_from_byte_slice(value)
-            .or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
+        let path = try_from_byte_slice(value).or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
         relative_path_from_value_and_path(value.as_bstr(), path)
     }
 }
@@ -91,8 +89,8 @@ impl<'a, const N: usize> TryFrom<&'a [u8; N]> for &'a RelativePath {
 
     #[inline]
     fn try_from(value: &'a [u8; N]) -> Result<Self, Self::Error> {
-        let path = try_from_byte_slice(value.as_bstr())
-            .or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
+        let path =
+            try_from_byte_slice(value.as_bstr()).or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
         relative_path_from_value_and_path(value.as_bstr(), path)
     }
 }
@@ -101,8 +99,7 @@ impl<'a> TryFrom<&'a BString> for &'a RelativePath {
     type Error = Error;
 
     fn try_from(value: &'a BString) -> Result<Self, Self::Error> {
-        let path = try_from_bstr(value.as_bstr())
-            .or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
+        let path = try_from_bstr(value.as_bstr()).or_raise(|| gix_error::message("Path contains illegal UTF-8"))?;
         relative_path_from_value_and_path(value.as_bstr(), &path)
     }
 }

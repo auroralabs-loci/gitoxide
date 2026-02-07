@@ -182,9 +182,7 @@ where
             }
 
             if let Some(hash) = self.hash.take() {
-                let actual_id = hash
-                    .try_finalize()
-                    .map_err(|e| input::Error::Io(e.into_error()))?;
+                let actual_id = hash.try_finalize().map_err(|e| input::Error::Io(e.into_error()))?;
                 if self.mode == input::Mode::Restore {
                     id = actual_id;
                 } else {
@@ -196,10 +194,7 @@ where
             Some(id)
         } else if self.mode == input::Mode::Restore {
             let hash = self.hash.clone().expect("in restore mode a hash is set");
-            Some(
-                hash.try_finalize()
-                    .map_err(|e| input::Error::Io(e.into_error()))?,
-            )
+            Some(hash.try_finalize().map_err(|e| input::Error::Io(e.into_error()))?)
         } else {
             None
         })
@@ -281,11 +276,10 @@ where
 impl crate::data::File {
     /// Returns an iterator over [`Entries`][crate::data::input::Entry], without making use of the memory mapping.
     pub fn streaming_iter(&self) -> Result<BytesToEntriesIter<impl io::BufRead>, input::Error> {
-        let reader =
-            io::BufReader::with_capacity(
-                4096 * 8,
-                fs::File::open(&self.path).map_err(|e| input::Error::Io(gix_error::Error::from_error(e)))?,
-            );
+        let reader = io::BufReader::with_capacity(
+            4096 * 8,
+            fs::File::open(&self.path).map_err(|e| input::Error::Io(gix_error::Error::from_error(e)))?,
+        );
         BytesToEntriesIter::new_from_header(
             reader,
             input::Mode::Verify,

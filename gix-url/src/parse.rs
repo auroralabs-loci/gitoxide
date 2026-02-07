@@ -82,13 +82,21 @@ pub(crate) fn url(input: &BStr, protocol_end: usize) -> Result<crate::Url, Error
     if bytes_to_path > MAX_LEN || protocol_end > MAX_LEN {
         let truncated_url: bstr::BString = input[..(protocol_end + "://".len() + MAX_LEN).min(input.len())].into();
         let len = input.len();
-        return Err(message!("The host portion of the following URL is too long ({} bytes, {len} bytes total): {truncated_url:?}", truncated_url.len()).raise());
+        return Err(message!(
+            "The host portion of the following URL is too long ({} bytes, {len} bytes total): {truncated_url:?}",
+            truncated_url.len()
+        )
+        .raise());
     }
     let (input, url) = input_to_utf8_and_url(input, UrlKind::Url)?;
     let scheme = Scheme::from(url.scheme.as_str());
 
     if matches!(scheme, Scheme::Git | Scheme::Ssh) && url.path.is_empty() {
-        return Err(message!("{} \"{input}\" does not specify a path to a repository", UrlKind::Url.as_str()).raise());
+        return Err(message!(
+            "{} \"{input}\" does not specify a path to a repository",
+            UrlKind::Url.as_str()
+        )
+        .raise());
     }
 
     // Normalize empty path to "/" for http/https URLs only
@@ -156,7 +164,12 @@ pub(crate) fn scp(input: &BStr, colon: usize) -> Result<crate::Url, Error> {
     let path = &path[1..];
 
     if path.is_empty() {
-        return Err(message!("{} \"{}\" does not specify a path to a repository", UrlKind::Scp.as_str(), input).raise());
+        return Err(message!(
+            "{} \"{}\" does not specify a path to a repository",
+            UrlKind::Scp.as_str(),
+            input
+        )
+        .raise());
     }
 
     // The path returned by the parsed url often has the wrong number of leading `/` characters but
@@ -207,7 +220,12 @@ pub(crate) fn file_url(input: &BStr, protocol_colon: usize) -> Result<crate::Url
         .find('/')
         .or_else(|| cfg!(windows).then(|| input_after_protocol.find('\\')).flatten())
     else {
-        return Err(message!("{} \"{}\" does not specify a path to a repository", UrlKind::Url.as_str(), input).raise());
+        return Err(message!(
+            "{} \"{}\" does not specify a path to a repository",
+            UrlKind::Url.as_str(),
+            input
+        )
+        .raise());
     };
 
     // We cannot use the url crate to parse host and path because it special cases Windows
@@ -256,7 +274,12 @@ pub(crate) fn file_url(input: &BStr, protocol_colon: usize) -> Result<crate::Url
 
 pub(crate) fn local(input: &BStr) -> Result<crate::Url, Error> {
     if input.is_empty() {
-        return Err(message!("{} \"{}\" does not specify a path to a repository", UrlKind::Local.as_str(), input).raise());
+        return Err(message!(
+            "{} \"{}\" does not specify a path to a repository",
+            UrlKind::Local.as_str(),
+            input
+        )
+        .raise());
     }
 
     Ok(crate::Url {
@@ -271,8 +294,7 @@ pub(crate) fn local(input: &BStr) -> Result<crate::Url, Error> {
 }
 
 fn input_to_utf8(input: &BStr, kind: UrlKind) -> Result<&str, Error> {
-    std::str::from_utf8(input)
-        .or_raise(|| message!("{} \"{}\" is not valid UTF-8", kind.as_str(), input))
+    std::str::from_utf8(input).or_raise(|| message!("{} \"{}\" is not valid UTF-8", kind.as_str(), input))
 }
 
 fn input_to_utf8_and_url(input: &BStr, kind: UrlKind) -> Result<(&str, crate::simple_url::ParsedUrl), Error> {

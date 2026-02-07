@@ -66,7 +66,8 @@ pub mod verify {
         /// If the hashes do not match, an [`Error`] is returned, containing the actual
         /// hash of `self`.
         pub fn verify_checksum(&self, expected: &gix_hash::oid) -> Result<gix_hash::ObjectId, Error> {
-            let actual = crate::compute_hash(expected.kind(), self.kind, self.data).map_err(|e| Error::Hasher(e.into_error()))?;
+            let actual = crate::compute_hash(expected.kind(), self.kind, self.data)
+                .map_err(|e| Error::Hasher(e.into_error()))?;
             actual.verify(expected).map_err(|e| Error::Verify(e.into_error()))?;
             Ok(actual)
         }

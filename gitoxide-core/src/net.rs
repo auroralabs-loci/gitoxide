@@ -49,6 +49,7 @@ pub async fn connect<Url, E>(
 where
     Url: TryInto<gix::url::Url, Error = E>,
     gix::url::parse::Error: From<E>,
+    E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
 {
     Ok(gix::protocol::SendFlushOnDrop::new(
         io_mode::connect::connect(url, options).await?,

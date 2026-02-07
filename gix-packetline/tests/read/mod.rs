@@ -26,7 +26,7 @@ pub mod streaming_peek_iter {
     async fn peek_follows_read_line_delimiter_logic() -> crate::Result {
         let mut rd = StreamingPeekableIter::new(&b"0005a00000005b"[..], &[PacketLineRef::Flush], false);
         let res = rd.peek_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Data(b"a"));
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Data(b"a"));
         rd.read_line().await;
 
         let res = rd.peek_line().await;
@@ -41,7 +41,7 @@ pub mod streaming_peek_iter {
         rd.reset();
         let res = rd.peek_line().await;
         assert_eq!(
-            res.expect("line")??,
+            res.expect("line")?.map_err(gix_error::Exn::into_error)?,
             PacketLineRef::Data(b"b"),
             "after resetting, we get past the delimiter"
         );
@@ -53,7 +53,7 @@ pub mod streaming_peek_iter {
         let mut rd = StreamingPeekableIter::new(&b"0005a0009ERR e0000"[..], &[PacketLineRef::Flush], false);
         rd.fail_on_err_lines(true);
         let res = rd.peek_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Data(b"a"));
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Data(b"a"));
         rd.read_line().await;
         let res = rd.peek_line().await;
         assert_eq!(
@@ -80,11 +80,11 @@ pub mod streaming_peek_iter {
         let mut rd = StreamingPeekableIter::new(&b"0005a0009ERR e0000"[..], &[PacketLineRef::Flush], false);
         rd.fail_on_err_lines(false);
         let res = rd.peek_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Data(b"a"));
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Data(b"a"));
         rd.read_line().await;
         let res = rd.peek_line().await;
         assert_eq!(
-            res.expect("line")??,
+            res.expect("line")?.map_err(gix_error::Exn::into_error)?,
             PacketLineRef::Data(b"ERR e"),
             "we read the ERR but it's not interpreted as such"
         );
@@ -100,12 +100,12 @@ pub mod streaming_peek_iter {
     async fn peek_non_data() -> crate::Result {
         let mut rd = StreamingPeekableIter::new(&b"000000010002"[..], &[PacketLineRef::ResponseEnd], false);
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Flush);
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Flush);
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Delimiter);
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Delimiter);
         rd.reset_with(&[PacketLineRef::Flush]);
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::ResponseEnd);
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::ResponseEnd);
         for _ in 0..2 {
             let res = rd.peek_line().await;
             assert_eq!(
@@ -127,10 +127,10 @@ pub mod streaming_peek_iter {
         let input = b"00010009ERR e0002";
         let mut rd = StreamingPeekableIter::new(&input[..], &[], false);
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Delimiter);
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Delimiter);
         let res = rd.read_line().await;
         assert_eq!(
-            res.expect("line")??.as_bstr(),
+            res.expect("line")?.map_err(gix_error::Exn::into_error)?.as_bstr(),
             Some(b"ERR e".as_bstr()),
             "by default no special handling"
         );
@@ -138,7 +138,7 @@ pub mod streaming_peek_iter {
         let mut rd = StreamingPeekableIter::new(&input[..], &[], false);
         rd.fail_on_err_lines(true);
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Delimiter);
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Delimiter);
         let res = rd.read_line().await;
         assert_eq!(
             res.expect("line").unwrap_err().to_string(),
@@ -150,10 +150,10 @@ pub mod streaming_peek_iter {
 
         rd.replace(input);
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, PacketLineRef::Delimiter);
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, PacketLineRef::Delimiter);
         let res = rd.read_line().await;
         assert_eq!(
-            res.expect("line")??.as_bstr(),
+            res.expect("line")?.map_err(gix_error::Exn::into_error)?.as_bstr(),
             Some(b"ERR e".as_bstr()),
             "a 'replace' also resets error handling to the default: false"
         );
@@ -165,24 +165,24 @@ pub mod streaming_peek_iter {
         let bytes = fixture_bytes("v1/fetch/01-many-refs.response");
         let mut rd = StreamingPeekableIter::new(&bytes[..], &[PacketLineRef::Flush], false);
         let res = rd.peek_line().await;
-        assert_eq!(res.expect("line")??, first_line(), "peek returns first line");
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, first_line(), "peek returns first line");
         let res = rd.peek_line().await;
         assert_eq!(
-            res.expect("line")??,
+            res.expect("line")?.map_err(gix_error::Exn::into_error)?,
             first_line(),
             "peeked lines are never exhausted, unless they are finally read"
         );
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, first_line(), "read_line returns the peek once");
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, first_line(), "read_line returns the peek once");
         let res = rd.read_line().await;
         assert_eq!(
-            res.expect("line")??.as_bstr(),
+            res.expect("line")?.map_err(gix_error::Exn::into_error)?.as_bstr(),
             Some(b"7814e8a05a59c0cf5fb186661d1551c75d1299b5 refs/heads/master\n".as_bstr()),
             "the next read_line returns the next line"
         );
         let res = rd.peek_line().await;
         assert_eq!(
-            res.expect("line")??.as_bstr(),
+            res.expect("line")?.map_err(gix_error::Exn::into_error)?.as_bstr(),
             Some(b"7814e8a05a59c0cf5fb186661d1551c75d1299b5 refs/remotes/origin/HEAD\n".as_bstr()),
             "peek always gets the next line verbatim"
         );
@@ -202,7 +202,7 @@ pub mod streaming_peek_iter {
         bytes.extend(fixture_bytes("v1/fetch/01-many-refs.response"));
         let mut rd = StreamingPeekableIter::new(&bytes[..], &[PacketLineRef::Flush], false);
         let res = rd.read_line().await;
-        assert_eq!(res.expect("line")??, first_line());
+        assert_eq!(res.expect("line")?.map_err(gix_error::Exn::into_error)?, first_line());
         let res = exhaust(&mut rd).await;
         assert_eq!(res + 1, 1561, "it stops after seeing the flush byte");
         rd.reset();

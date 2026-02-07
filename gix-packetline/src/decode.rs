@@ -117,6 +117,8 @@ pub fn streaming(data: &[u8]) -> Result<Stream<'_>, Error> {
 pub fn all_at_once(data: &[u8]) -> Result<PacketLineRef<'_>, Error> {
     match streaming(data)? {
         Stream::Complete { line, .. } => Ok(line),
-        Stream::Incomplete { bytes_needed } => Err(gix_error::message!("Needing {bytes_needed} additional bytes to decode the line successfully").raise()),
+        Stream::Incomplete { bytes_needed } => {
+            Err(gix_error::message!("Needing {bytes_needed} additional bytes to decode the line successfully").raise())
+        }
     }
 }

@@ -54,7 +54,7 @@ fn no_username_expansion_for_file_paths_with_protocol() -> crate::Result {
 
 #[test]
 fn non_utf8_file_path_without_protocol() -> crate::Result {
-    let url = gix_url::parse(b"/path/to\xff/git".as_bstr()).map_err(|e| e.into_error())?;
+    let url = gix_url::parse(b"/path/to\xff/git".as_bstr()).map_err(gix_error::Exn::into_error)?;
     assert_eq!(url, url_alternate(Scheme::File, None, None, None, b"/path/to\xff/git"));
     let url_lossless = url.to_bstring();
     assert_eq!(
@@ -102,7 +102,7 @@ fn no_relative_paths_if_protocol() -> crate::Result {
     assert_url_roundtrip("file://a/", url(Scheme::File, None, "a", None, b"/"))?;
     if cfg!(windows) {
         assert_eq!(
-            gix_url::parse(r"file://.\".into()).map_err(|e| e.into_error())?,
+            gix_url::parse(r"file://.\".into()).map_err(gix_error::Exn::into_error)?,
             url(Scheme::File, None, ".", None, br"\"),
             "we are just as none-sensical as git here due to special handling."
         );
@@ -236,7 +236,8 @@ mod unix {
                 None,
                 b"/repo".into(),
                 false,
-            ).map_err(|e| e.into_error())?,
+            )
+            .map_err(gix_error::Exn::into_error)?,
         )
     }
 

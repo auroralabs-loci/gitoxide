@@ -28,6 +28,12 @@ impl<E: Error + Send + Sync + 'static> From<E> for Exn<E> {
     }
 }
 
+impl From<std::convert::Infallible> for Exn<crate::Message> {
+    fn from(v: std::convert::Infallible) -> Self {
+        match v {}
+    }
+}
+
 impl<E: Error + Send + Sync + 'static> Exn<E> {
     /// Create a new exception with the given error.
     ///

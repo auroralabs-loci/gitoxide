@@ -4,7 +4,8 @@ use crate::parse::parse;
 fn relative_path_due_to_double_colon() {
     let err = parse("invalid:://host.xz/path/to/repo.git/").unwrap_err();
     assert!(
-        err.to_string().contains("is relative which is not allowed in this context"),
+        err.to_string()
+            .contains("is relative which is not allowed in this context"),
         "unexpected error: {err}"
     );
 }

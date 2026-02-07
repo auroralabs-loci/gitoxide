@@ -92,7 +92,7 @@ mod program {
         assert_eq!(
             gix_credentials::helper::invoke(
                 &mut Program::from_custom_definition(
-                    gix_path::into_bstr(gix_path::realpath(gix_testtools::fixture_path("custom-helper.sh"))?)
+                    gix_path::into_bstr(gix_path::realpath(gix_testtools::fixture_path("custom-helper.sh")).map_err(gix_error::Exn::into_error)?)
                         .into_owned()
                 ),
                 &helper::Action::get_for_url("/does/not/matter"),

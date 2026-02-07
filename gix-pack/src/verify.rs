@@ -48,7 +48,7 @@ pub fn checksum_on_disk_or_mmap(
             if err.to_string().contains("Interrupted")
                 || err
                     .downcast_any_ref::<std::io::Error>()
-                    .map_or(false, |e| e.kind() == std::io::ErrorKind::Interrupted)
+                    .is_some_and(|e| e.kind() == std::io::ErrorKind::Interrupted)
             {
                 return Err(checksum::Error::Interrupted);
             }

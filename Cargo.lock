@@ -1583,6 +1583,7 @@ dependencies = [
  "bytesize",
  "cap",
  "gix-config",
+ "gix-error",
  "gix-path",
  "gix-ref",
  "gix-sec",
@@ -1612,6 +1613,7 @@ dependencies = [
  "gix-command",
  "gix-config-value",
  "gix-date",
+ "gix-error",
  "gix-path",
  "gix-prompt",
  "gix-quote",
@@ -1671,6 +1673,7 @@ name = "gix-diff-tests"
 version = "0.0.0"
 dependencies = [
  "gix-diff",
+ "gix-error",
  "gix-filter",
  "gix-fs",
  "gix-hash",
@@ -1692,6 +1695,7 @@ version = "0.20.0"
 dependencies = [
  "bstr",
  "gix-discover",
+ "gix-error",
  "gix-fs",
  "gix-ignore",
  "gix-index",
@@ -1713,6 +1717,7 @@ dependencies = [
  "bstr",
  "defer",
  "dunce",
+ "gix-error",
  "gix-fs",
  "gix-path",
  "gix-ref",
@@ -1897,6 +1902,7 @@ version = "0.0.0"
 dependencies = [
  "bstr",
  "filetime",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-index",
@@ -1950,6 +1956,7 @@ dependencies = [
  "document-features",
  "gix-command",
  "gix-diff",
+ "gix-error",
  "gix-filter",
  "gix-fs",
  "gix-hash",
@@ -2049,6 +2056,7 @@ dependencies = [
  "filetime",
  "gix-actor",
  "gix-date",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-object",
@@ -2089,6 +2097,7 @@ name = "gix-pack-tests"
 version = "0.0.0"
 dependencies = [
  "bstr",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-object",

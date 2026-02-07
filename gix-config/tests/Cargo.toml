@@ -22,6 +22,7 @@ path = "mem.rs"
 
 [dev-dependencies]
 gix-config = { path = ".." }
+gix-error = { version = "^0.0.0", path = "../../gix-error" }
 gix-testtools = { path = "../../tests/tools" }
 gix-ref = { path = "../../gix-ref" }
 gix-path = { path = "../../gix-path" }

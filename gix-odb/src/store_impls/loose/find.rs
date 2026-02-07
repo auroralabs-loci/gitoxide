@@ -9,10 +9,7 @@ use crate::store_impls::loose::{hash_path, Store, HEADER_MAX_SIZE};
 #[allow(missing_docs)]
 pub enum Error {
     #[error("decompression of loose object at '{path}' failed")]
-    DecompressFile {
-        source: gix_error::Error,
-        path: PathBuf,
-    },
+    DecompressFile { source: gix_error::Error, path: PathBuf },
     #[error("file at '{path}' showed invalid size of inflated data, expected {expected}, got {actual}")]
     SizeMismatch { actual: u64, expected: u64, path: PathBuf },
     #[error(transparent)]
@@ -171,7 +168,9 @@ impl Store {
 
         if status == zlib::Status::BufError {
             return Err(Error::DecompressFile {
-                source: gix_error::Error::from_error(gix_error::message!("The zlib status indicated an error, status was '{status:?}'")),
+                source: gix_error::Error::from_error(gix_error::message!(
+                    "The zlib status indicated an error, status was '{status:?}'"
+                )),
                 path,
             });
         }
@@ -210,7 +209,9 @@ impl Store {
         };
         if status == zlib::Status::BufError {
             return Err(Error::DecompressFile {
-                source: gix_error::Error::from_error(gix_error::message!("The zlib status indicated an error, status was '{status:?}'")),
+                source: gix_error::Error::from_error(gix_error::message!(
+                    "The zlib status indicated an error, status was '{status:?}'"
+                )),
                 path,
             });
         }

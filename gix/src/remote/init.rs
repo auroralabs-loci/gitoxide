@@ -69,9 +69,8 @@ impl<'repo> Remote<'repo> {
         E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         Self::from_fetch_url_inner(
-            url.try_into().map_err(|err| {
-                Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
-            })?,
+            url.try_into()
+                .map_err(|err| Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
             should_rewrite_urls,
             repo,
         )

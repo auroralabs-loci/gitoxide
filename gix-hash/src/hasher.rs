@@ -78,7 +78,11 @@ pub(super) mod _impl {
                             std::hint::unreachable_unchecked()
                         }
                     }
-                    CollisionResult::Collision(digest) => Err(gix_error::message!("Detected SHA-1 collision attack with digest {}", crate::ObjectId::Sha1(digest.into())).raise()),
+                    CollisionResult::Collision(digest) => Err(gix_error::message!(
+                        "Detected SHA-1 collision attack with digest {}",
+                        crate::ObjectId::Sha1(digest.into())
+                    )
+                    .raise()),
                 },
                 #[cfg(feature = "sha256")]
                 Hasher::Sha256(sha256) => Ok(crate::ObjectId::Sha256(sha256.finalize().into())),

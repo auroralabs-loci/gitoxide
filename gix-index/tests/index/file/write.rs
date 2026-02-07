@@ -27,7 +27,7 @@ fn roundtrips() -> crate::Result {
         let expected_bytes = std::fs::read(fixture.to_path())?;
         let mut out_bytes = Vec::new();
 
-        let (actual_version, _digest) = expected.write_to(&mut out_bytes, options)?;
+        let (actual_version, _digest) = expected.write_to(&mut out_bytes, options).map_err(gix_error::Exn::into_error)?;
         let (actual, _) = State::from_bytes(&out_bytes, FileTime::now(), gix_hash::Kind::Sha1, Default::default())?;
 
         let name = fixture.to_name();
@@ -108,7 +108,7 @@ fn roundtrips_sparse_index() -> crate::Result {
         let _expected_bytes = std::fs::read(fixture.to_path())?;
         let mut out_bytes = Vec::new();
 
-        let (actual_version, _) = expected.write_to(&mut out_bytes, options)?;
+        let (actual_version, _) = expected.write_to(&mut out_bytes, options).map_err(gix_error::Exn::into_error)?;
         let (actual, _) = State::from_bytes(&out_bytes, FileTime::now(), gix_hash::Kind::Sha1, Default::default())?;
 
         compare_states_against_baseline(&actual, actual_version, &expected, options, fixture.to_name());
@@ -175,7 +175,7 @@ fn extended_flags_automatically_upgrade_the_version_to_avoid_data_loss() -> crat
     expected.entries_mut()[0].flags.insert(entry::Flags::EXTENDED);
 
     let mut buf = Vec::new();
-    let (actual_version, _digest) = expected.write_to(&mut buf, Default::default())?;
+    let (actual_version, _digest) = expected.write_to(&mut buf, Default::default()).map_err(gix_error::Exn::into_error)?;
     assert_eq!(actual_version, Version::V3, "extended flags need V3");
 
     Ok(())
@@ -191,7 +191,7 @@ fn remove_flag_is_respected() -> crate::Result {
         entry.flags.toggle(entry::Flags::REMOVE);
     }
     let mut buf = Vec::<u8>::new();
-    index.write_to(&mut buf, Default::default())?;
+    index.write_to(&mut buf, Default::default()).map_err(gix_error::Exn::into_error)?;
 
     let (state, _checksum) = State::from_bytes(&buf, FileTime::now(), gix_hash::Kind::Sha1, Default::default())?;
     assert_eq!(

@@ -9,7 +9,7 @@ mod streaming {
         expected_consumed: usize,
         expected_value: PacketLineRef,
     ) -> crate::Result {
-        match res.map_err(|e| e.into_error())? {
+        match res.map_err(gix_error::Exn::into_error)? {
             Stream::Complete { line, bytes_consumed } => {
                 assert_eq!(bytes_consumed, expected_consumed);
                 assert_eq!(line.as_bstr(), expected_value.as_bstr());
@@ -44,7 +44,7 @@ mod streaming {
 
         #[maybe_async::test(feature = "blocking-io", async(feature = "async-io", async_std::test))]
         async fn trailing_line_feeds_are_removed_explicitly() -> crate::Result {
-            let line = decode::all_at_once(b"0006a\n").map_err(|e| e.into_error())?;
+            let line = decode::all_at_once(b"0006a\n").map_err(gix_error::Exn::into_error)?;
             assert_eq!(line.as_text().expect("text").0.as_bstr(), b"a".as_bstr());
             let mut out = Vec::new();
             encode_io::write_text(&line.as_text().expect("text"), &mut out)
@@ -77,7 +77,7 @@ mod streaming {
                 &mut out,
             )
             .await?;
-            let line = decode::all_at_once(&out).map_err(|e| e.into_error())?;
+            let line = decode::all_at_once(&out).map_err(gix_error::Exn::into_error)?;
             assert_eq!(line.check_error().expect("err").0, b"the error");
             Ok(())
         }
@@ -90,7 +90,7 @@ mod streaming {
                     .as_band(*channel)
                     .expect("data is valid for band");
                 encode_io::write_band(&band, &mut out).await?;
-                let line = decode::all_at_once(&out).map_err(|e| e.into_error())?;
+                let line = decode::all_at_once(&out).map_err(gix_error::Exn::into_error)?;
                 assert_eq!(line.decode_band().expect("valid band"), band);
             }
             Ok(())
@@ -152,7 +152,7 @@ mod streaming {
         use gix_packetline::decode::{self, streaming, Stream};
 
         fn assert_incomplete(res: Result<Stream, decode::Error>, expected_missing: usize) -> crate::Result {
-            match res.map_err(|e| e.into_error())? {
+            match res.map_err(gix_error::Exn::into_error)? {
                 Stream::Complete { .. } => {
                     panic!("expected parsing to be partial, not complete");
                 }

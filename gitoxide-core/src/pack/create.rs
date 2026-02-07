@@ -148,7 +148,10 @@ where
                         .map(|hex_id| {
                             hex_id
                                 .map_err(|err| Box::new(err) as Box<_>)
-                                .and_then(|hex_id| ObjectId::from_hex(hex_id.as_bytes()).map_err(Into::into))
+                                .and_then(|hex_id| {
+                                    ObjectId::from_hex(hex_id.as_bytes())
+                                        .map_err(|e| Box::new(e.into_error()) as Box<_>)
+                                })
                         })
                         .inspect(move |_| progress.inc()),
                 ),

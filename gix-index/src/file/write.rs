@@ -48,7 +48,9 @@ impl File {
             gix_lock::File::acquire_to_update_resource(&self.path, gix_lock::acquire::Fail::Immediately, None)
                 .map_err(|e| Error::AcquireLock(e.into_error()))?,
         );
-        let (version, digest) = self.write_to(&mut lock, options).map_err(|e| Error::Io(e.into_error()))?;
+        let (version, digest) = self
+            .write_to(&mut lock, options)
+            .map_err(|e| Error::Io(e.into_error()))?;
         match lock.into_inner() {
             Ok(lock) => lock.commit()?,
             Err(err) => {

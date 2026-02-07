@@ -19,6 +19,7 @@ name = "integrate"
 path = "integrate.rs"
 
 [dev-dependencies]
+gix-error = { version = "^0.0.0", path = "../../gix-error" }
 gix-odb = { path = ".." }
 gix-features = { path = "../../gix-features" }
 gix-hash = { path = "../../gix-hash" }

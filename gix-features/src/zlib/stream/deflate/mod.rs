@@ -68,17 +68,14 @@ impl Compress {
             FlushCompress::Full => zlib_rs::DeflateFlush::FullFlush,
             FlushCompress::Finish => zlib_rs::DeflateFlush::Finish,
         };
-        let status = self
-            .0
-            .compress(input, output, flush)
-            .map_err(|e| {
-                match e {
-                    zlib_rs::DeflateError::StreamError => message("stream error"),
-                    zlib_rs::DeflateError::DataError => message("The input is not a valid deflate stream."),
-                    zlib_rs::DeflateError::MemError => message("Not enough memory"),
-                }
-                .raise()
-            })?;
+        let status = self.0.compress(input, output, flush).map_err(|e| {
+            match e {
+                zlib_rs::DeflateError::StreamError => message("stream error"),
+                zlib_rs::DeflateError::DataError => message("The input is not a valid deflate stream."),
+                zlib_rs::DeflateError::MemError => message("Not enough memory"),
+            }
+            .raise()
+        })?;
         match status {
             zlib_rs::Status::Ok => Ok(Status::Ok),
             zlib_rs::Status::BufError => Ok(Status::BufError),

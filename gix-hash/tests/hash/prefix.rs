@@ -139,20 +139,14 @@ mod new {
     fn errors_if_hex_len_is_longer_than_oid_len_in_hex() {
         let kind = Kind::Sha1;
         let err = gix_hash::Prefix::new(&ObjectId::null(kind), kind.len_in_hex() + 1).unwrap_err();
-        assert!(
-            err.to_string().contains("cannot be larger than"),
-            "got: {err}"
-        );
+        assert!(err.to_string().contains("cannot be larger than"), "got: {err}");
     }
 
     #[test]
     fn errors_if_hex_len_is_too_short() {
         let kind = Kind::Sha1;
         let err = gix_hash::Prefix::new(&ObjectId::null(kind), 3).unwrap_err();
-        assert!(
-            err.to_string().contains("minimum hex length"),
-            "got: {err}"
-        );
+        assert!(err.to_string().contains("minimum hex length"), "got: {err}");
     }
 }
 
@@ -186,10 +180,7 @@ mod try_from {
     fn id_to_short() {
         let input = "ab";
         let actual = Prefix::try_from(input).unwrap_err();
-        assert!(
-            actual.to_string().contains("minimum hex length"),
-            "got: {actual}"
-        );
+        assert!(actual.to_string().contains("minimum hex length"), "got: {actual}");
     }
 
     #[test]
@@ -197,30 +188,21 @@ mod try_from {
     fn id_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123";
         let actual = Prefix::try_from(input).unwrap_err();
-        assert!(
-            actual.to_string().contains("cannot be larger than"),
-            "got: {actual}"
-        );
+        assert!(actual.to_string().contains("cannot be larger than"), "got: {actual}");
     }
 
     #[test]
     fn id_always_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123123123123123";
         let actual = Prefix::try_from(input).unwrap_err();
-        assert!(
-            actual.to_string().contains("cannot be larger than"),
-            "got: {actual}"
-        );
+        assert!(actual.to_string().contains("cannot be larger than"), "got: {actual}");
     }
 
     #[test]
     fn invalid_chars() {
         let input = "abcdfOsd";
         let actual = Prefix::try_from(input).unwrap_err();
-        assert!(
-            actual.to_string().contains("Invalid hex character"),
-            "got: {actual}"
-        );
+        assert!(actual.to_string().contains("Invalid hex character"), "got: {actual}");
     }
 }
 
@@ -267,10 +249,7 @@ mod from_hex_nonempty {
     fn id_empty() {
         let input = "";
         let actual = Prefix::from_hex_nonempty(input).unwrap_err();
-        assert!(
-            actual.to_string().contains("minimum hex length"),
-            "got: {actual}"
-        );
+        assert!(actual.to_string().contains("minimum hex length"), "got: {actual}");
     }
 
     #[test]
@@ -278,19 +257,13 @@ mod from_hex_nonempty {
     fn id_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123";
         let actual = Prefix::from_hex_nonempty(input).unwrap_err();
-        assert!(
-            actual.to_string().contains("cannot be larger than"),
-            "got: {actual}"
-        );
+        assert!(actual.to_string().contains("cannot be larger than"), "got: {actual}");
     }
 
     #[test]
     fn id_always_too_long() {
         let input = "abcdefabcdefabcdefabcdefabcdefabcdefabcd123123123123123123123123123123";
         let actual = Prefix::from_hex_nonempty(input).unwrap_err();
-        assert!(
-            actual.to_string().contains("cannot be larger than"),
-            "got: {actual}"
-        );
+        assert!(actual.to_string().contains("cannot be larger than"), "got: {actual}");
     }
 }

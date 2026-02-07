@@ -11,8 +11,9 @@ impl Remote<'_> {
         E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.url_inner(
-            url.try_into()
-                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
+            url.try_into().map_err(|err| {
+                remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
+            })?,
             true,
         )
     }
@@ -27,8 +28,9 @@ impl Remote<'_> {
         E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.url_inner(
-            url.try_into()
-                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
+            url.try_into().map_err(|err| {
+                remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
+            })?,
             false,
         )
     }
@@ -50,8 +52,9 @@ impl Remote<'_> {
         E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.push_url_inner(
-            url.try_into()
-                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
+            url.try_into().map_err(|err| {
+                remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
+            })?,
             true,
         )
     }
@@ -75,8 +78,9 @@ impl Remote<'_> {
         E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
     {
         self.push_url_inner(
-            url.try_into()
-                .map_err(|err| remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error()))?,
+            url.try_into().map_err(|err| {
+                remote::init::Error::Url(gix_error::Exn::from(gix_error::message!("{err}")).into_error())
+            })?,
             false,
         )
     }

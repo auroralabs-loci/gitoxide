@@ -27,6 +27,7 @@ thiserror = "2.0.18"
 dunce = "1.0.3"
 
 [dev-dependencies]
+gix-error = { version = "^0.0.0", path = "../gix-error" }
 gix-testtools = { path = "../tests/tools" }
 serial_test = { version = "3.3.1", default-features = false }
 is_ci = "1.1.1"

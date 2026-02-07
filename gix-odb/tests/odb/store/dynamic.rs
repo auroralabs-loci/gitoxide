@@ -553,7 +553,7 @@ mod disambiguate_prefix {
             for (index, oid) in handle.iter()?.with_ordering(order).map(Result::unwrap).enumerate() {
                 let hex_len = hex_lengths[index % hex_lengths.len()];
                 let prefix = handle
-                    .disambiguate_prefix(Candidate::new(oid, hex_len)?)?
+                    .disambiguate_prefix(Candidate::new(oid, hex_len).map_err(gix_error::Exn::into_error)?)?
                     .expect("object exists");
                 assert_eq!(prefix.hex_len(), hex_len);
                 assert_eq!(prefix.cmp_oid(&oid), Ordering::Equal);
@@ -712,7 +712,7 @@ mod lookup_prefix {
             for (index, oid) in handle.iter()?.with_ordering(order).map(Result::unwrap).enumerate() {
                 for mut candidates in [None, Some(HashSet::default())] {
                     let hex_len = hex_lengths[index % hex_lengths.len()];
-                    let prefix = gix_hash::Prefix::new(&oid, hex_len)?;
+                    let prefix = gix_hash::Prefix::new(&oid, hex_len).map_err(gix_error::Exn::into_error)?;
                     assert_eq!(
                         handle
                             .lookup_prefix(prefix, candidates.as_mut())?

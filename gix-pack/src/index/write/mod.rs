@@ -224,7 +224,7 @@ impl crate::index::File {
                 let header = crate::data::header::encode(pack_version, 0);
                 let mut hasher = gix_hash::hasher(object_hash);
                 hasher.update(&header);
-                hasher.try_finalize().map_err(|e| e.into_error())?
+                hasher.try_finalize().map_err(gix_error::Exn::into_error)?
             }
             None => return Err(Error::IteratorInvariantTrailer),
         };
@@ -257,7 +257,7 @@ fn modify_base(
     hash: gix_hash::Kind,
 ) -> Result<(), gix_error::Error> {
     let object_kind = pack_entry.header.as_kind().expect("base object as source of iteration");
-    let id = gix_object::compute_hash(hash, object_kind, decompressed).map_err(|e| e.into_error())?;
+    let id = gix_object::compute_hash(hash, object_kind, decompressed).map_err(gix_error::Exn::into_error)?;
     entry.id = id;
     Ok(())
 }

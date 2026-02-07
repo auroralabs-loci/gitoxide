@@ -42,7 +42,9 @@ impl ParsedUrl {
         }
 
         // Find scheme by looking for first ':'
-        let first_colon = input.find(':').ok_or_else(|| message("relative URL without a base").raise())?;
+        let first_colon = input
+            .find(':')
+            .ok_or_else(|| message("relative URL without a base").raise())?;
         let scheme_str = &input[..first_colon];
         // Normalize scheme to lowercase for case-insensitive matching (matches url crate behavior)
         let scheme = scheme_str.to_ascii_lowercase();
@@ -135,7 +137,9 @@ impl ParsedUrl {
                         let host = Some(host_port.to_ascii_lowercase());
                         return Ok((host, None));
                     }
-                    let port = port_str.parse::<u16>().map_err(|_| message("invalid port number - must be between 1-65535").raise())?;
+                    let port = port_str
+                        .parse::<u16>()
+                        .map_err(|_| message("invalid port number - must be between 1-65535").raise())?;
                     // Validate port is in valid range (1-65535, port 0 is invalid)
                     if port == 0 {
                         return Err(message("invalid port number - must be between 1-65535").raise());

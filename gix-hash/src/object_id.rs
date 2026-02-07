@@ -69,7 +69,9 @@ pub mod decode {
                     ObjectId::Sha1({
                         let mut buf = [0; SIZE_OF_SHA1_DIGEST];
                         faster_hex::hex_decode(buffer, &mut buf).map_err(|err| match err {
-                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => gix_error::message("Invalid character encountered").raise(),
+                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => {
+                                gix_error::message("Invalid character encountered").raise()
+                            }
                             faster_hex::Error::InvalidLength(_) => {
                                 unreachable!("BUG: This is already checked")
                             }
@@ -82,7 +84,9 @@ pub mod decode {
                     ObjectId::Sha256({
                         let mut buf = [0; SIZE_OF_SHA256_DIGEST];
                         faster_hex::hex_decode(buffer, &mut buf).map_err(|err| match err {
-                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => gix_error::message("Invalid character encountered").raise(),
+                            faster_hex::Error::InvalidChar | faster_hex::Error::Overflow => {
+                                gix_error::message("Invalid character encountered").raise()
+                            }
                             faster_hex::Error::InvalidLength(_) => {
                                 unreachable!("BUG: This is already checked")
                             }

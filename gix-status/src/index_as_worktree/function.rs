@@ -568,9 +568,8 @@ where
         let is_symlink = self.entry.mode == gix_index::entry::Mode::SYMLINK;
         // TODO: what to do about precompose unicode and ignore_case for symlinks
         let out = if is_symlink && self.core_symlinks {
-            let symlink_path = gix_path::to_unix_separators_on_windows(gix_path::into_bstr(
-                std::fs::read_link(self.path)?,
-            ));
+            let symlink_path =
+                gix_path::to_unix_separators_on_windows(gix_path::into_bstr(std::fs::read_link(self.path)?));
             self.buf.extend_from_slice(&symlink_path);
             self.worktree_bytes.fetch_add(self.buf.len() as u64, Ordering::Relaxed);
             Stream {

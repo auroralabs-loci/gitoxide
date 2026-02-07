@@ -85,12 +85,10 @@ impl Store {
                 .map_err(|_| integrity::Error::Retry)?
                 .ok_or(integrity::Error::Retry)?;
             sink.write_buf(object.kind, object.data)
-                .map_err(|err| {
-                    integrity::Error::ObjectHasher {
-                        source: gix_error::ErrorExt::raise(gix_error::message!("{err}")).into_error(),
-                        kind: object.kind,
-                        expected: id,
-                    }
+                .map_err(|err| integrity::Error::ObjectHasher {
+                    source: gix_error::ErrorExt::raise(gix_error::message!("{err}")).into_error(),
+                    kind: object.kind,
+                    expected: id,
                 })?
                 .verify(&id)
                 .map_err(|err| integrity::Error::ObjectEncodeMismatch {

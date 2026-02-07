@@ -54,7 +54,9 @@ pub(crate) mod function {
                 CurDir => {}
                 ParentDir => {
                     if !real_path.pop() {
-                        return Err(message("Ran out of path components while following parent component '..'").raise());
+                        return Err(
+                            message("Ran out of path components while following parent component '..'").raise(),
+                        );
                     }
                 }
                 Normal(part) => {
@@ -63,10 +65,13 @@ pub(crate) mod function {
                     if real_path.is_symlink() {
                         num_symlinks += 1;
                         if num_symlinks > max_symlinks {
-                            return Err(gix_error::message!("The maximum allowed number {max_symlinks} of symlinks in path is exceeded").raise());
+                            return Err(gix_error::message!(
+                                "The maximum allowed number {max_symlinks} of symlinks in path is exceeded"
+                            )
+                            .raise());
                         }
-                        let mut link_destination = std::fs::read_link(real_path.as_path())
-                            .or_raise(|| message("Could not read symlink"))?;
+                        let mut link_destination =
+                            std::fs::read_link(real_path.as_path()).or_raise(|| message("Could not read symlink"))?;
                         if link_destination.is_absolute() {
                             // pushing absolute path to real_path resets it to the pushed absolute path
                         } else {

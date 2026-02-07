@@ -283,7 +283,7 @@ fn non_existing() -> crate::Result {
     );
     assert_eq!(buf.len(), 0, "it's always cleared before any potential use");
 
-    let some_id = gix_hash::ObjectId::from_hex(b"45c160c35c17ad264b96431cceb9793160396e99")?;
+    let some_id = gix_hash::ObjectId::from_hex(b"45c160c35c17ad264b96431cceb9793160396e99").map_err(gix_error::Exn::into_error)?;
     let err = filter
         .convert_to_mergeable(
             &some_id,

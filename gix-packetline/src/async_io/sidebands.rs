@@ -279,9 +279,7 @@ where
 
                             match this.handle_progress.as_mut() {
                                 Some(handle_progress) => {
-                                    let band = line
-                                        .decode_band()
-                                        .map_err(|e| io::Error::other(e.into_error()))?;
+                                    let band = line.decode_band().map_err(|e| io::Error::other(e.into_error()))?;
                                     const ENCODED_BAND: usize = 1;
                                     match band {
                                         BandRef::Data(d) => {
