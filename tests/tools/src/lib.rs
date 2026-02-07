@@ -1017,7 +1017,8 @@ fn marker_if_needed(
                 None,
             )
         })
-        .transpose()?)
+        .transpose()
+        .map_err(|e: gix_error::Exn<gix_error::Message>| e.into_error())?)
 }
 
 fn force_and_dir(
