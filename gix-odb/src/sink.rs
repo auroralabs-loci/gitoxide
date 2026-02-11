@@ -53,6 +53,8 @@ impl gix_object::Write for Sink {
             c.reset();
         }
 
-        Ok(hasher.try_finalize()?)
+        hasher
+            .try_finalize()
+            .map_err(|e| Box::new(e.into_error()) as Box<dyn std::error::Error + Send + Sync>)
     }
 }

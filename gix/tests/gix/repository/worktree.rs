@@ -56,7 +56,7 @@ mod with_core_worktree_config {
             } else {
                 assert_eq!(
                     repo.workdir().unwrap(),
-                    gix_path::realpath(repo.git_dir().parent().unwrap().parent().unwrap().join("worktree"))?,
+                    gix_path::realpath(repo.git_dir().parent().unwrap().parent().unwrap().join("worktree")).map_err(gix_error::Exn::into_error)?,
                     "absolute workdirs are left untouched"
                 );
             }
@@ -71,7 +71,7 @@ mod with_core_worktree_config {
             assert_eq!(baseline.len(), 1, "git lists the main worktree");
             assert_eq!(
                 baseline[0].root,
-                gix_path::realpath(repo.git_dir().parent().unwrap())?,
+                gix_path::realpath(repo.git_dir().parent().unwrap()).map_err(gix_error::Exn::into_error)?,
                 "git lists the original worktree, to which we have no access anymore"
             );
             assert_eq!(

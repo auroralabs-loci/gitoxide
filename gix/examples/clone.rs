@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
     let url = gix::url::parse(repo_url.to_str().unwrap().into())?;
 
     println!("Url: {:?}", url.to_bstring());
-    let mut prepare_clone = gix::prepare_clone(url, &dst)?;
+    let mut prepare_clone = gix::prepare_clone(repo_url.to_str().unwrap(), &dst)?;
 
     println!("Cloning {repo_url:?} into {dst:?}...");
     let (mut prepare_checkout, _) =

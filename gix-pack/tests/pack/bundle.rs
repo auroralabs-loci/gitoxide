@@ -103,8 +103,8 @@ mod write_to_directory {
         Ok(pack::bundle::write::Outcome {
             index: pack::index::write::Outcome {
                 index_version: pack::index::Version::V2,
-                index_hash: gix_hash::ObjectId::from_hex(b"544a7204a55f6e9cacccf8f6e191ea8f83575de3")?,
-                data_hash: gix_hash::ObjectId::from_hex(b"0f3ea84cd1bba10c2a03d736a460635082833e59")?,
+                index_hash: gix_hash::ObjectId::from_hex(b"544a7204a55f6e9cacccf8f6e191ea8f83575de3").map_err(gix_error::Exn::into_error)?,
+                data_hash: gix_hash::ObjectId::from_hex(b"0f3ea84cd1bba10c2a03d736a460635082833e59").map_err(gix_error::Exn::into_error)?,
                 num_objects: 42,
             },
             pack_version: pack::data::Version::V2,

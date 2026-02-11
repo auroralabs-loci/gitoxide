@@ -1,13 +1,9 @@
-use crate::{oid, ObjectId};
+use gix_error::ErrorExt as _;
+
+use crate::oid;
 
 /// The error returned by [`oid::verify()`].
-#[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
-#[error("Hash was {actual}, but should have been {expected}")]
-pub struct Error {
-    pub actual: ObjectId,
-    pub expected: ObjectId,
-}
+pub type Error = gix_error::Exn<gix_error::Message>;
 
 impl oid {
     /// Verify that `self` matches the `expected` object ID.
@@ -18,10 +14,12 @@ impl oid {
         if self == expected {
             Ok(())
         } else {
-            Err(Error {
-                actual: self.to_owned(),
-                expected: expected.to_owned(),
-            })
+            Err(gix_error::message!(
+                "Hash was {}, but should have been {}",
+                self.to_owned(),
+                expected.to_owned()
+            )
+            .raise())
         }
     }
 }

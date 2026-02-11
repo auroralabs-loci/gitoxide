@@ -1,4 +1,5 @@
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, ByteSlice};
+use gix_error::OptionExt;
 use kstring::KStringRef;
 
 use crate::{Name, NameRef};
@@ -36,7 +37,7 @@ impl<'a> TryFrom<&'a BStr> for NameRef<'a> {
 
         attr_valid(attr)
             .then(|| NameRef(KStringRef::from_ref(attr.to_str().expect("no illformed utf8"))))
-            .ok_or_else(|| Error { attribute: attr.into() })
+            .ok_or_raise(|| gix_error::message!("Attribute has non-ascii characters or starts with '-': {attr}"))
     }
 }
 
@@ -59,9 +60,4 @@ impl AsRef<str> for Name {
 }
 
 /// The error returned by [`parse::Iter`][crate::parse::Iter].
-#[derive(Debug, thiserror::Error)]
-#[error("Attribute has non-ascii characters or starts with '-': {attribute}")]
-pub struct Error {
-    /// The attribute that failed to parse.
-    pub attribute: BString,
-}
+pub type Error = gix_error::Exn<gix_error::Message>;

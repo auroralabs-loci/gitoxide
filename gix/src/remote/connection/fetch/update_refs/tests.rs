@@ -196,7 +196,7 @@ mod update {
         let root = gix_path::realpath(gix_testtools::scripted_fixture_read_only_with_args_single_archive(
             "make_fetch_repos.sh",
             [base_repo_path()],
-        )?)?;
+        )?).map_err(gix_error::Exn::into_error)?;
         let repo = root.join("worktree-root");
         let repo = gix::open_opts(repo, restricted())?;
         for (branch, path_from_root) in [

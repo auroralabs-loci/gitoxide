@@ -4,11 +4,11 @@
 #[allow(missing_docs)]
 pub enum Error {
     #[error("An IO operation failed while streaming an entry")]
-    Io(#[from] gix_hash::io::Error),
+    Io(#[source] gix_error::Error),
     #[error(transparent)]
     PackParse(#[from] crate::data::header::decode::Error),
     #[error("Failed to verify pack checksum in trailer")]
-    Verify(#[from] gix_hash::verify::Error),
+    Verify(#[source] gix_error::Error),
     #[error("pack is incomplete: it was decompressed into {actual} bytes but {expected} bytes where expected.")]
     IncompletePack { actual: u64, expected: u64 },
     #[error("The object {object_id} could not be decoded or wasn't found")]

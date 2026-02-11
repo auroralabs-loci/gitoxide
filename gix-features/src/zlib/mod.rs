@@ -1,4 +1,4 @@
-use zlib_rs::InflateError;
+use gix_error::{message, ErrorExt as _, Exn, Message};
 
 /// A type to hold all state needed for decompressing a ZLIB encoded stream.
 pub struct Decompress(zlib_rs::Inflate);
@@ -46,7 +46,15 @@ impl Decompress {
             FlushDecompress::Finish => zlib_rs::InflateFlush::Finish,
         };
 
-        let status = self.0.decompress(input, output, inflate_flush)?;
+        let status = self.0.decompress(input, output, inflate_flush).map_err(|e| {
+            match e {
+                zlib_rs::InflateError::NeedDict { .. } => message("Decompressing this input requires a dictionary"),
+                zlib_rs::InflateError::StreamError => message("stream error"),
+                zlib_rs::InflateError::DataError => message("Invalid input data"),
+                zlib_rs::InflateError::MemError => message("Not enough memory"),
+            }
+            .raise()
+        })?;
         match status {
             zlib_rs::Status::Ok => Ok(Status::Ok),
             zlib_rs::Status::BufError => Ok(Status::BufError),
@@ -56,29 +64,7 @@ impl Decompress {
 }
 
 /// The error produced by [`Decompress::decompress()`].
-#[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
-pub enum DecompressError {
-    #[error("stream error")]
-    StreamError,
-    #[error("Not enough memory")]
-    InsufficientMemory,
-    #[error("Invalid input data")]
-    DataError,
-    #[error("Decompressing this input requires a dictionary")]
-    NeedDict,
-}
-
-impl From<zlib_rs::InflateError> for DecompressError {
-    fn from(value: InflateError) -> Self {
-        match value {
-            InflateError::NeedDict { .. } => DecompressError::NeedDict,
-            InflateError::StreamError => DecompressError::StreamError,
-            InflateError::DataError => DecompressError::DataError,
-            InflateError::MemError => DecompressError::InsufficientMemory,
-        }
-    }
-}
+pub type DecompressError = Exn<Message>;
 
 /// The status returned by [`Decompress::decompress()`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,16 +108,7 @@ pub enum FlushDecompress {
 /// non-streaming interfaces for decompression
 pub mod inflate {
     /// The error returned by various [Inflate methods][super::Inflate]
-    #[derive(Debug, thiserror::Error)]
-    #[allow(missing_docs)]
-    pub enum Error {
-        #[error("Could not write all bytes when decompressing content")]
-        WriteInflated(#[from] std::io::Error),
-        #[error("Could not decode zip stream, status was '{0}'")]
-        Inflate(#[from] super::DecompressError),
-        #[error("The zlib status indicated an error, status was '{0:?}'")]
-        Status(super::Status),
-    }
+    pub type Error = gix_error::Exn<gix_error::Message>;
 }
 
 /// Decompress a few bytes of a zlib stream without allocation
@@ -144,9 +121,13 @@ pub struct Inflate {
 impl Inflate {
     /// Run the decompressor exactly once. Cannot be run multiple times
     pub fn once(&mut self, input: &[u8], out: &mut [u8]) -> Result<(Status, usize, usize), inflate::Error> {
+        use gix_error::ResultExt;
         let before_in = self.state.total_in();
         let before_out = self.state.total_out();
-        let status = self.state.decompress(input, out, FlushDecompress::None)?;
+        let status = self
+            .state
+            .decompress(input, out, FlushDecompress::None)
+            .or_raise(|| message("Could not decode zip stream"))?;
         Ok((
             status,
             (self.state.total_in() - before_in) as usize,

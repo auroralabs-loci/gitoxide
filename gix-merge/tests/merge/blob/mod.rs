@@ -44,7 +44,7 @@ mod util {
     impl ObjectDb {
         /// Insert `data` and return its hash. That can be used to find it again.
         pub fn insert(&mut self, data: &str) -> Result<gix_hash::ObjectId, Error> {
-            let id = gix_object::compute_hash(gix_hash::Kind::Sha1, gix_object::Kind::Blob, data.as_bytes())?;
+            let id = gix_object::compute_hash(gix_hash::Kind::Sha1, gix_object::Kind::Blob, data.as_bytes()).map_err(gix_error::Exn::into_error)?;
             self.data_by_id.insert(id, data.into());
             Ok(id)
         }

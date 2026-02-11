@@ -1,5 +1,4 @@
-[?1049h[?25l
-thread '<unnamed>' panicked at src/porcelain/main.rs:42:42:
-something went very wrong
+
+thread 'main' panicked at src/shared.rs:205:18:
+tui to come up without io error: Os { code: 6, kind: Uncategorized, message: "Device not configured" }
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-[?25h[?1049l

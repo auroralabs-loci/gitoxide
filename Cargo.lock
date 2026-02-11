@@ -110,12 +110,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
-name = "assert_matches"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
-
-[[package]]
 name = "async-attributes"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1480,6 +1474,7 @@ version = "0.30.0"
 dependencies = [
  "bstr",
  "document-features",
+ "gix-error",
  "gix-fs",
  "gix-glob",
  "gix-path",
@@ -1489,7 +1484,6 @@ dependencies = [
  "kstring",
  "serde",
  "smallvec",
- "thiserror 2.0.18",
  "unicode-bom",
 ]
 
@@ -1497,8 +1491,8 @@ dependencies = [
 name = "gix-bitmap"
 version = "0.2.15"
 dependencies = [
+ "gix-error",
  "gix-testtools",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1589,6 +1583,7 @@ dependencies = [
  "bytesize",
  "cap",
  "gix-config",
+ "gix-error",
  "gix-path",
  "gix-ref",
  "gix-sec",
@@ -1618,6 +1613,7 @@ dependencies = [
  "gix-command",
  "gix-config-value",
  "gix-date",
+ "gix-error",
  "gix-path",
  "gix-prompt",
  "gix-quote",
@@ -1677,6 +1673,7 @@ name = "gix-diff-tests"
 version = "0.0.0"
 dependencies = [
  "gix-diff",
+ "gix-error",
  "gix-filter",
  "gix-fs",
  "gix-hash",
@@ -1698,6 +1695,7 @@ version = "0.20.0"
 dependencies = [
  "bstr",
  "gix-discover",
+ "gix-error",
  "gix-fs",
  "gix-ignore",
  "gix-index",
@@ -1719,6 +1717,7 @@ dependencies = [
  "bstr",
  "defer",
  "dunce",
+ "gix-error",
  "gix-fs",
  "gix-path",
  "gix-ref",
@@ -1751,6 +1750,7 @@ dependencies = [
  "crc32fast",
  "crossbeam-channel",
  "document-features",
+ "gix-error",
  "gix-path",
  "gix-trace",
  "gix-utils",
@@ -1758,7 +1758,6 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "prodash",
- "thiserror 2.0.18",
  "walkdir",
  "zlib-rs 0.6.0",
 ]
@@ -1796,13 +1795,13 @@ dependencies = [
  "bstr",
  "crossbeam-channel",
  "fastrand",
+ "gix-error",
  "gix-features",
  "gix-path",
  "gix-utils",
  "is_ci",
  "serde",
  "tempfile",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1835,12 +1834,12 @@ version = "0.22.0"
 dependencies = [
  "document-features",
  "faster-hex",
+ "gix-error",
  "gix-features",
  "gix-testtools",
  "serde",
  "sha1-checked",
  "sha2",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1877,6 +1876,7 @@ dependencies = [
  "filetime",
  "fnv",
  "gix-bitmap",
+ "gix-error",
  "gix-features",
  "gix-fs",
  "gix-hash",
@@ -1902,6 +1902,7 @@ version = "0.0.0"
 dependencies = [
  "bstr",
  "filetime",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-index",
@@ -1918,10 +1919,10 @@ version = "0.0.0"
 name = "gix-lock"
 version = "21.0.0"
 dependencies = [
+ "gix-error",
  "gix-tempfile",
  "gix-utils",
  "tempfile",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1942,9 +1943,9 @@ dependencies = [
  "document-features",
  "gix-actor",
  "gix-date",
+ "gix-error",
  "gix-testtools",
  "serde",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1955,6 +1956,7 @@ dependencies = [
  "document-features",
  "gix-command",
  "gix-diff",
+ "gix-error",
  "gix-filter",
  "gix-fs",
  "gix-hash",
@@ -2007,6 +2009,7 @@ dependencies = [
  "document-features",
  "gix-actor",
  "gix-date",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-hashtable",
@@ -2030,6 +2033,7 @@ version = "0.75.0"
 dependencies = [
  "arc-swap",
  "document-features",
+ "gix-error",
  "gix-features",
  "gix-fs",
  "gix-hash",
@@ -2052,6 +2056,7 @@ dependencies = [
  "filetime",
  "gix-actor",
  "gix-date",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-object",
@@ -2092,6 +2097,7 @@ name = "gix-pack-tests"
 version = "0.0.0"
 dependencies = [
  "bstr",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-object",
@@ -2113,6 +2119,7 @@ dependencies = [
  "faster-hex",
  "futures-io",
  "futures-lite",
+ "gix-error",
  "gix-hash",
  "gix-odb",
  "gix-pack",
@@ -2120,7 +2127,6 @@ dependencies = [
  "maybe-async",
  "pin-project-lite",
  "serde",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2128,11 +2134,11 @@ name = "gix-path"
 version = "0.11.0"
 dependencies = [
  "bstr",
+ "gix-error",
  "gix-testtools",
  "gix-trace",
  "gix-validate",
  "serial_test",
- "thiserror 2.0.18",
  "windows 0.62.2",
  "winreg 0.55.0",
 ]
@@ -2178,6 +2184,7 @@ dependencies = [
  "futures-lite",
  "gix-credentials",
  "gix-date",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-lock",
@@ -2202,8 +2209,8 @@ name = "gix-quote"
 version = "0.6.1"
 dependencies = [
  "bstr",
+ "gix-error",
  "gix-utils",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2217,6 +2224,7 @@ dependencies = [
  "document-features",
  "gix-actor",
  "gix-date",
+ "gix-error",
  "gix-features",
  "gix-fs",
  "gix-hash",
@@ -2342,6 +2350,7 @@ dependencies = [
  "filetime",
  "gix-diff",
  "gix-dir",
+ "gix-error",
  "gix-features",
  "gix-filter",
  "gix-fs",
@@ -2417,6 +2426,7 @@ dependencies = [
  "fastrand",
  "fs_extra",
  "gix-discover",
+ "gix-error",
  "gix-fs",
  "gix-lock",
  "gix-tempfile",
@@ -2458,6 +2468,7 @@ dependencies = [
  "futures-lite",
  "gix-command",
  "gix-credentials",
+ "gix-error",
  "gix-features",
  "gix-hash",
  "gix-pack",
@@ -2509,14 +2520,13 @@ version = "0.0.0"
 name = "gix-url"
 version = "0.35.0"
 dependencies = [
- "assert_matches",
  "bstr",
  "document-features",
+ "gix-error",
  "gix-path",
  "gix-testtools",
  "percent-encoding",
  "serde",
- "thiserror 2.0.18",
 ]
 
 [[package]]

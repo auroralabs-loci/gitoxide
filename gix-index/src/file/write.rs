@@ -1,13 +1,15 @@
+use gix_error::ResultExt;
+
 use crate::{write, File, Version};
 
 /// The error produced by [`File::write()`].
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum Error {
-    #[error(transparent)]
-    Io(#[from] gix_hash::io::Error),
+    #[error("Could not write index file")]
+    Io(#[source] gix_error::Error),
     #[error("Could not acquire lock for index file")]
-    AcquireLock(#[from] gix_lock::acquire::Error),
+    AcquireLock(#[source] gix_error::Error),
     #[error("Could not commit lock for index file")]
     CommitLock(#[from] gix_lock::commit::Error<gix_lock::File>),
 }
@@ -31,7 +33,8 @@ impl File {
             let version = self.state.write_to(out, options)?;
             (version, hasher.hash.try_finalize()?)
         };
-        out.write_all(hash.as_slice())?;
+        out.write_all(hash.as_slice())
+            .or_raise(|| gix_error::message("Could not write index hash"))?;
         Ok((version, hash))
     }
 
@@ -42,12 +45,18 @@ impl File {
         let _span = gix_features::trace::detail!("gix_index::File::write()", path = ?self.path);
         let mut lock = std::io::BufWriter::with_capacity(
             64 * 1024,
-            gix_lock::File::acquire_to_update_resource(&self.path, gix_lock::acquire::Fail::Immediately, None)?,
+            gix_lock::File::acquire_to_update_resource(&self.path, gix_lock::acquire::Fail::Immediately, None)
+                .map_err(|e| Error::AcquireLock(e.into_error()))?,
         );
-        let (version, digest) = self.write_to(&mut lock, options)?;
+        let (version, digest) = self
+            .write_to(&mut lock, options)
+            .map_err(|e| Error::Io(e.into_error()))?;
         match lock.into_inner() {
             Ok(lock) => lock.commit()?,
-            Err(err) => return Err(Error::Io(err.into_error().into())),
+            Err(err) => {
+                let io_err: std::io::Error = err.into_error();
+                return Err(Error::Io(gix_error::ErrorExt::raise(io_err).into_error()));
+            }
         };
         self.state.version = version;
         self.checksum = Some(digest);

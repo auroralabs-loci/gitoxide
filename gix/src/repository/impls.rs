@@ -107,7 +107,7 @@ impl gix_object::Write for crate::Repository {
     }
 
     fn write_buf(&self, object: gix_object::Kind, from: &[u8]) -> Result<gix_hash::ObjectId, gix_object::write::Error> {
-        let oid = gix_object::compute_hash(self.object_hash(), object, from)?;
+        let oid = gix_object::compute_hash(self.object_hash(), object, from).map_err(gix_error::Exn::into_error)?;
         if self.objects.exists(&oid) {
             return Ok(oid);
         }

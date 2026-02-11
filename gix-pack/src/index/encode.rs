@@ -73,7 +73,7 @@ mod function {
         pack_hash: &gix_hash::ObjectId,
         kind: crate::index::Version,
         progress: &mut dyn DynNestedProgress,
-    ) -> Result<gix_hash::ObjectId, gix_hash::io::Error> {
+    ) -> Result<gix_hash::ObjectId, gix_error::Error> {
         use io::Write;
         assert_eq!(kind, crate::index::Version::V2, "Can only write V2 packs right now");
         assert!(
@@ -86,8 +86,9 @@ mod function {
             8 * 4096,
             gix_hash::io::Write::new(out, kind.hash()),
         ));
-        out.write_all(V2_SIGNATURE)?;
-        out.write_all(&(kind as u32).to_be_bytes())?;
+        out.write_all(V2_SIGNATURE).map_err(gix_error::Error::from_error)?;
+        out.write_all(&(kind as u32).to_be_bytes())
+            .map_err(gix_error::Error::from_error)?;
 
         progress.init(Some(4), progress::steps());
         let start = std::time::Instant::now();
@@ -95,19 +96,22 @@ mod function {
         let fan_out = fanout(&mut entries_sorted_by_oid.iter().map(|e| e.data.id.first_byte()));
 
         for value in fan_out.iter() {
-            out.write_all(&value.to_be_bytes())?;
+            out.write_all(&value.to_be_bytes())
+                .map_err(gix_error::Error::from_error)?;
         }
 
         progress.inc();
         let _info = progress.add_child_with_id("writing ids".into(), gix_features::progress::UNKNOWN);
         for entry in &entries_sorted_by_oid {
-            out.write_all(entry.data.id.as_slice())?;
+            out.write_all(entry.data.id.as_slice())
+                .map_err(gix_error::Error::from_error)?;
         }
 
         progress.inc();
         let _info = progress.add_child_with_id("writing crc32".into(), gix_features::progress::UNKNOWN);
         for entry in &entries_sorted_by_oid {
-            out.write_all(&entry.data.crc32.to_be_bytes())?;
+            out.write_all(&entry.data.crc32.to_be_bytes())
+                .map_err(gix_error::Error::from_error)?;
         }
 
         progress.inc();
@@ -125,20 +129,28 @@ mod function {
                 } else {
                     entry.offset as u32
                 };
-                out.write_all(&offset.to_be_bytes())?;
+                out.write_all(&offset.to_be_bytes())
+                    .map_err(gix_error::Error::from_error)?;
             }
             for value in offsets64 {
-                out.write_all(&value.to_be_bytes())?;
+                out.write_all(&value.to_be_bytes())
+                    .map_err(gix_error::Error::from_error)?;
             }
         }
 
-        out.write_all(pack_hash.as_slice())?;
+        out.write_all(pack_hash.as_slice())
+            .map_err(gix_error::Error::from_error)?;
 
         let bytes_written_without_trailer = out.bytes;
-        let out = out.inner.into_inner().map_err(io::Error::from)?;
-        let index_hash = out.hash.try_finalize()?;
-        out.inner.write_all(index_hash.as_slice())?;
-        out.inner.flush()?;
+        let out = out
+            .inner
+            .into_inner()
+            .map_err(|e| gix_error::Error::from_error(io::Error::from(e)))?;
+        let index_hash = out.hash.try_finalize().map_err(gix_error::Exn::into_error)?;
+        out.inner
+            .write_all(index_hash.as_slice())
+            .map_err(gix_error::Error::from_error)?;
+        out.inner.flush().map_err(gix_error::Error::from_error)?;
 
         progress.inc();
         progress.show_throughput_with(

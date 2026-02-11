@@ -8,9 +8,9 @@ mod error {
     #[allow(missing_docs)]
     pub enum Error {
         #[error("Could not read index file to generate hash")]
-        Io(#[from] gix_hash::io::Error),
+        Io(#[source] gix_error::Error),
         #[error("Index checksum mismatch")]
-        Verify(#[from] gix_hash::verify::Error),
+        Verify(#[source] gix_error::Error),
     }
 }
 pub use error::Error;
@@ -20,8 +20,12 @@ impl File {
     pub fn verify_integrity(&self) -> Result<(), Error> {
         let _span = gix_features::trace::coarse!("gix_index::File::verify_integrity()");
         if let Some(checksum) = self.checksum {
-            let num_bytes_to_hash =
-                self.path.metadata().map_err(gix_hash::io::Error::from)?.len() - checksum.as_bytes().len() as u64;
+            let num_bytes_to_hash = self
+                .path
+                .metadata()
+                .map_err(|e| Error::Io(gix_error::ErrorExt::raise(e).into_error()))?
+                .len()
+                - checksum.as_bytes().len() as u64;
             let should_interrupt = AtomicBool::new(false);
             gix_hash::bytes_of_file(
                 &self.path,
@@ -29,8 +33,10 @@ impl File {
                 checksum.kind(),
                 &mut gix_features::progress::Discard,
                 &should_interrupt,
-            )?
-            .verify(&checksum)?;
+            )
+            .map_err(|e| Error::Io(e.into_error()))?
+            .verify(&checksum)
+            .map_err(|e| Error::Verify(e.into_error()))?;
         }
         Ok(())
     }

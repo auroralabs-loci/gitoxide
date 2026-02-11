@@ -1862,7 +1862,7 @@ mod util {
         let tree_id_path = root.join(tree).with_extension("tree");
         let hex_id = std::fs::read_to_string(&tree_id_path)
             .map_err(|err| std::io::Error::other(format!("Could not read '{}': {}", tree_id_path.display(), err)))?;
-        let tree_id = gix_hash::ObjectId::from_hex(hex_id.trim().as_bytes())?;
+        let tree_id = gix_hash::ObjectId::from_hex(hex_id.trim().as_bytes()).map_err(gix_error::Exn::into_error)?;
         let mut buf = Vec::new();
         odb.find_tree(&tree_id, &mut buf)?;
         Ok(buf)

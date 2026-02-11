@@ -143,15 +143,15 @@ impl CompareBlobs for HashEq {
         match stream.as_bytes() {
             Some(buffer) => {
                 let file_hash = gix_object::compute_hash(entry.id.kind(), gix_object::Kind::Blob, buffer)
-                    .map_err(gix_hash::io::Error::from)?;
+                    .map_err(|e| std::io::Error::other(e.into_error()))?;
                 Ok((entry.id != file_hash).then_some(file_hash))
             }
             None => {
                 let file_hash = match stream.size() {
                     None => {
-                        stream.read_to_end(buf).map_err(gix_hash::io::Error::from)?;
+                        stream.read_to_end(buf)?;
                         gix_object::compute_hash(entry.id.kind(), gix_object::Kind::Blob, buf)
-                            .map_err(gix_hash::io::Error::from)?
+                            .map_err(|e| std::io::Error::other(e.into_error()))?
                     }
                     Some(len) => gix_object::compute_stream_hash(
                         entry.id.kind(),
@@ -160,7 +160,8 @@ impl CompareBlobs for HashEq {
                         len,
                         &mut gix_features::progress::Discard,
                         &AtomicBool::default(),
-                    )?,
+                    )
+                    .map_err(|e| std::io::Error::other(e.into_error()))?,
                 };
                 Ok((entry.id != file_hash).then_some(file_hash))
             }

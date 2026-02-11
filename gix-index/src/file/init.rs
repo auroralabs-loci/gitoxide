@@ -82,12 +82,9 @@ impl File {
                         &mut gix_features::progress::Discard,
                         &Default::default(),
                     )
-                    .map_err(|err| match err {
-                        gix_hash::io::Error::Io(err) => Error::Io(err),
-                        gix_hash::io::Error::Hasher(err) => Error::Decode(err.into()),
-                    })?
+                    .map_err(|e| Error::Decode(decode::Error::Hasher(e.into_error())))?
                     .verify(&expected)
-                    .map_err(decode::Error::from)?;
+                    .map_err(|e| Error::Decode(decode::Error::Verify(e.into_error())))?;
                 }
             }
 

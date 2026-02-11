@@ -461,7 +461,7 @@ fn decompress_all_at_once_with(
     out.resize(decompressed_len, 0);
     inflate.reset();
     inflate.once(b, out).map_err(|err| Error::ZlibInflate {
-        source: err,
+        source: err.into_error(),
         message: "Failed to decompress entry",
     })?;
     Ok(())

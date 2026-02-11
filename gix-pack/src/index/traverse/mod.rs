@@ -128,7 +128,7 @@ impl index::File {
         Ok(if check.file_checksum() {
             pack.checksum()
                 .verify(&self.pack_checksum())
-                .map_err(Error::PackMismatch)?;
+                .map_err(|e| Error::PackMismatch(e.into_error()))?;
             let (pack_res, id) = parallel::join(
                 move || pack.verify_checksum(pack_progress, should_interrupt),
                 move || self.verify_checksum(index_progress, should_interrupt),

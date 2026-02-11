@@ -209,7 +209,7 @@ pub mod baseline {
                 continue;
             }
             let mut tokens = line.splitn(2, |b| *b == b'\t');
-            let target = ObjectId::from_hex(tokens.next().expect("hex-sha"))?;
+            let target = ObjectId::from_hex(tokens.next().expect("hex-sha")).map_err(gix_error::Exn::into_error)?;
             let name = tokens.next().expect("name");
             if !name.ends_with(b"^{}") {
                 out.push(Ref {

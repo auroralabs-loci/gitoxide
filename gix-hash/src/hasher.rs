@@ -1,10 +1,5 @@
 /// The error returned by [`Hasher::try_finalize()`](crate::Hasher::try_finalize()).
-#[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
-pub enum Error {
-    #[error("Detected SHA-1 collision attack with digest {digest}")]
-    CollisionAttack { digest: crate::ObjectId },
-}
+pub type Error = gix_error::Exn<gix_error::Message>;
 
 pub(super) mod _impl {
     #[cfg(feature = "sha1")]
@@ -13,7 +8,7 @@ pub(super) mod _impl {
     #[cfg(all(not(feature = "sha1"), feature = "sha256"))]
     use sha2::Digest;
 
-    use crate::hasher::Error;
+    use gix_error::ErrorExt as _;
 
     /// Hash implementations that can be used once.
     #[derive(Clone)]
@@ -64,7 +59,7 @@ pub(super) mod _impl {
         //       turning the return type into `Result<crate::ObjectId, Infallible>` when this crate is
         //       compiled with SHA-256 support only.
         #[inline]
-        pub fn try_finalize(self) -> Result<crate::ObjectId, Error> {
+        pub fn try_finalize(self) -> Result<crate::ObjectId, super::Error> {
             match self {
                 #[cfg(feature = "sha1")]
                 Hasher::Sha1(sha1) => match sha1.try_finalize() {
@@ -83,9 +78,11 @@ pub(super) mod _impl {
                             std::hint::unreachable_unchecked()
                         }
                     }
-                    CollisionResult::Collision(digest) => Err(Error::CollisionAttack {
-                        digest: crate::ObjectId::Sha1(digest.into()),
-                    }),
+                    CollisionResult::Collision(digest) => Err(gix_error::message!(
+                        "Detected SHA-1 collision attack with digest {}",
+                        crate::ObjectId::Sha1(digest.into())
+                    )
+                    .raise()),
                 },
                 #[cfg(feature = "sha256")]
                 Hasher::Sha256(sha256) => Ok(crate::ObjectId::Sha256(sha256.finalize().into())),

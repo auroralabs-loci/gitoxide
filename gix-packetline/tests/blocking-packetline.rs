@@ -6,7 +6,14 @@ pub fn assert_err_display<T: std::fmt::Debug, E: std::error::Error>(
 ) {
     match res {
         Ok(v) => panic!("Expected error '{}', got value {:?}", expected.as_ref(), v),
-        Err(err) => assert_eq!(err.to_string(), expected.as_ref()),
+        Err(err) => {
+            let msg = err.to_string();
+            assert!(
+                msg.starts_with(expected.as_ref()),
+                "Expected error starting with '{}', got '{msg}'",
+                expected.as_ref()
+            );
+        }
     }
 }
 

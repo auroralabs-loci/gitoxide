@@ -1,3 +1,4 @@
+use gix_error::{message, ErrorExt};
 use percent_encoding::percent_decode_str;
 
 /// A minimal URL parser that extracts only what we need for git URLs.
@@ -13,18 +14,8 @@ pub(crate) struct ParsedUrl {
 }
 
 /// Minimal parse error type to replace url::ParseError
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[allow(missing_docs)]
-pub enum UrlParseError {
-    #[error("relative URL without a base")]
-    RelativeUrlWithoutBase,
-    #[error("invalid port number - must be between 1-65535")]
-    InvalidPort,
-    #[error("invalid domain character")]
-    InvalidDomainCharacter,
-    #[error("Scheme requires host")]
-    SchemeRequiresHost,
-}
+pub type UrlParseError = gix_error::Exn<gix_error::Message>;
 
 /// Check if a character is valid in a URL scheme.
 /// Valid scheme characters: alphanumeric, +, -, or .
@@ -38,7 +29,7 @@ fn percent_decode(s: &str) -> Result<String, UrlParseError> {
     percent_decode_str(s)
         .decode_utf8()
         .map(std::borrow::Cow::into_owned)
-        .map_err(|_| UrlParseError::InvalidDomainCharacter)
+        .map_err(|_| message("invalid domain character").raise())
 }
 
 impl ParsedUrl {
@@ -47,26 +38,28 @@ impl ParsedUrl {
     pub(crate) fn parse(input: &str) -> Result<Self, UrlParseError> {
         // Validate that the entire URL doesn't contain any whitespace (per RFC 3986)
         if input.chars().any(char::is_whitespace) {
-            return Err(UrlParseError::InvalidDomainCharacter);
+            return Err(message("invalid domain character").raise());
         }
 
         // Find scheme by looking for first ':'
-        let first_colon = input.find(':').ok_or(UrlParseError::RelativeUrlWithoutBase)?;
+        let first_colon = input
+            .find(':')
+            .ok_or_else(|| message("relative URL without a base").raise())?;
         let scheme_str = &input[..first_colon];
         // Normalize scheme to lowercase for case-insensitive matching (matches url crate behavior)
         let scheme = scheme_str.to_ascii_lowercase();
         let Some(after_scheme) = input[first_colon..].strip_prefix("://") else {
-            return Err(UrlParseError::RelativeUrlWithoutBase);
+            return Err(message("relative URL without a base").raise());
         };
 
         // Check for relative URL (scheme without proper authority)
         if scheme_str.is_empty() {
-            return Err(UrlParseError::RelativeUrlWithoutBase);
+            return Err(message("relative URL without a base").raise());
         }
 
         // Validate scheme characters (check original before lowercase conversion)
         if !scheme_str.chars().all(is_valid_scheme_char) {
-            return Err(UrlParseError::RelativeUrlWithoutBase);
+            return Err(message("relative URL without a base").raise());
         }
 
         // Find path start (first '/' after scheme)
@@ -98,7 +91,7 @@ impl ParsedUrl {
             let (h, p) = Self::parse_host_port(host_port)?;
             // If we have user info, we must have a host
             if h.is_none() {
-                return Err(UrlParseError::InvalidDomainCharacter);
+                return Err(message("invalid domain character").raise());
             }
             (user, pass, h, p)
         } else {
@@ -111,7 +104,7 @@ impl ParsedUrl {
         // Scheme is already lowercase at this point
         let requires_host = matches!(scheme.as_str(), "http" | "https" | "git" | "ssh" | "ftp" | "ftps");
         if requires_host && host.is_none() {
-            return Err(UrlParseError::SchemeRequiresHost);
+            return Err(message("Scheme requires host").raise());
         }
 
         Ok(ParsedUrl {
@@ -144,19 +137,21 @@ impl ParsedUrl {
                         let host = Some(host_port.to_ascii_lowercase());
                         return Ok((host, None));
                     }
-                    let port = port_str.parse::<u16>().map_err(|_| UrlParseError::InvalidPort)?;
+                    let port = port_str
+                        .parse::<u16>()
+                        .map_err(|_| message("invalid port number - must be between 1-65535").raise())?;
                     // Validate port is in valid range (1-65535, port 0 is invalid)
                     if port == 0 {
-                        return Err(UrlParseError::InvalidPort);
+                        return Err(message("invalid port number - must be between 1-65535").raise());
                     }
                     // IPv6 addresses are case-insensitive, normalize to lowercase
                     let host = Some(host_port[..=bracket_end].to_ascii_lowercase());
                     return Ok((host, Some(port)));
                 } else {
-                    return Err(UrlParseError::InvalidDomainCharacter);
+                    return Err(message("invalid domain character").raise());
                 }
             } else {
-                return Err(UrlParseError::InvalidDomainCharacter);
+                return Err(message("invalid domain character").raise());
             }
         }
 
@@ -182,10 +177,10 @@ impl ParsedUrl {
                     let host = Self::normalize_hostname(before_last_colon)?;
                     let port = after_last_colon
                         .parse::<u16>()
-                        .map_err(|_| UrlParseError::InvalidPort)?;
+                        .map_err(|_| message("invalid port number - must be between 1-65535").raise())?;
                     // Validate port is in valid range (1-65535, port 0 is invalid)
                     if port == 0 {
-                        return Err(UrlParseError::InvalidPort);
+                        return Err(message("invalid port number - must be between 1-65535").raise());
                     }
                     return Ok((Some(host), Some(port)));
                 }
@@ -211,7 +206,7 @@ impl ParsedUrl {
         // Reject invalid characters: ?, space, tab, newline, etc.
         // These characters are forbidden in URLs per RFC 3986
         if host.chars().any(|c| c == '?' || c.is_whitespace()) {
-            return Err(UrlParseError::InvalidDomainCharacter);
+            return Err(message("invalid domain character").raise());
         }
 
         // Only normalize if it looks like a valid DNS hostname

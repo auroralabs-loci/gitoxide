@@ -9,6 +9,7 @@
 #![deny(missing_docs, rust_2018_idioms, unsafe_code)]
 
 use bstr::BStr;
+use gix_error::ErrorExt;
 
 ///
 #[cfg(feature = "async-io")]
@@ -127,12 +128,19 @@ impl<'a> PacketLineRef<'a> {
 
     /// Decode the band of this [`slice`](PacketLineRef::as_slice())
     pub fn decode_band(&self) -> Result<BandRef<'a>, decode::band::Error> {
-        let d = self.as_slice().ok_or(decode::band::Error::NonDataLine)?;
+        let d = self
+            .as_slice()
+            .ok_or_else(|| gix_error::message("attempt to decode a non-data line into a side-channel band").raise())?;
         Ok(match d[0] {
             1 => BandRef::Data(&d[1..]),
             2 => BandRef::Progress(&d[1..]),
             3 => BandRef::Error(&d[1..]),
-            band => return Err(decode::band::Error::InvalidSideBand { band_id: band }),
+            band_id => {
+                return Err(gix_error::message!(
+                    "attempt to decode a non-side channel line or input was malformed: {band_id}"
+                )
+                .raise())
+            }
         })
     }
 }

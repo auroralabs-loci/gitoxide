@@ -6,11 +6,11 @@ use std::{
 
 use futures_io::AsyncWrite;
 use futures_lite::AsyncWriteExt;
+use gix_error::ErrorExt;
 
 use crate::{
-    encode::{u16_to_hex, Error},
-    BandRef, Channel, ErrorRef, PacketLineRef, TextRef, DELIMITER_LINE, ERR_PREFIX, FLUSH_LINE, MAX_DATA_LEN,
-    RESPONSE_END_LINE,
+    encode::u16_to_hex, BandRef, Channel, ErrorRef, PacketLineRef, TextRef, DELIMITER_LINE, ERR_PREFIX, FLUSH_LINE,
+    MAX_DATA_LEN, RESPONSE_END_LINE,
 };
 
 pin_project_lite::pin_project! {
@@ -59,14 +59,16 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for LineWriter<'_, W> {
                 State::Idle => {
                     let data_len = this.prefix.len() + data.len() + this.suffix.len();
                     if data_len > MAX_DATA_LEN {
-                        let err = Error::DataLengthLimitExceeded {
-                            length_in_bytes: data_len,
-                        };
-                        return Poll::Ready(Err(io::Error::other(err)));
+                        return Poll::Ready(Err(io::Error::other(
+                            gix_error::message!("Cannot encode more than {MAX_DATA_LEN} bytes, got {data_len}")
+                                .raise()
+                                .into_error(),
+                        )));
                     }
                     if data.is_empty() {
-                        let err = Error::DataIsEmpty;
-                        return Poll::Ready(Err(io::Error::other(err)));
+                        return Poll::Ready(Err(io::Error::other(
+                            gix_error::message("Empty lines are invalid").raise().into_error(),
+                        )));
                     }
                     let data_len = data_len + 4;
                     let len_buf = u16_to_hex(data_len as u16);
@@ -148,14 +150,16 @@ async fn prefixed_and_suffixed_data_to_write(
 ) -> io::Result<usize> {
     let data_len = prefix.len() + data.len() + suffix.len();
     if data_len > MAX_DATA_LEN {
-        let err = Error::DataLengthLimitExceeded {
-            length_in_bytes: data_len,
-        };
-        return Err(io::Error::other(err));
+        return Err(io::Error::other(
+            gix_error::message!("Cannot encode more than {MAX_DATA_LEN} bytes, got {data_len}")
+                .raise()
+                .into_error(),
+        ));
     }
     if data.is_empty() {
-        let err = Error::DataIsEmpty;
-        return Err(io::Error::other(err));
+        return Err(io::Error::other(
+            gix_error::message("Empty lines are invalid").raise().into_error(),
+        ));
     }
 
     let data_len = data_len + 4;

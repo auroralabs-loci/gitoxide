@@ -12,7 +12,7 @@ pub enum Error {
     #[error("The clock was off when reading file related metadata after updating a file on disk")]
     Time(#[from] std::time::SystemTimeError),
     #[error("IO error while writing blob or reading file metadata or changing filetype")]
-    Io(#[from] gix_hash::io::Error),
+    Io(#[from] std::io::Error),
     #[error("Failed to obtain blob from object database")]
     Find(#[from] gix_object::find::existing_object::Error),
     #[error("Could not determine status for submodule at '{rela_path}'")]

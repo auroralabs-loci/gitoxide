@@ -1,9 +1,10 @@
 use std::io;
 
+use gix_error::ErrorExt;
+
 use crate::{
-    encode::{u16_to_hex, Error},
-    BandRef, Channel, ErrorRef, PacketLineRef, TextRef, DELIMITER_LINE, ERR_PREFIX, FLUSH_LINE, MAX_DATA_LEN,
-    RESPONSE_END_LINE,
+    encode::u16_to_hex, BandRef, Channel, ErrorRef, PacketLineRef, TextRef, DELIMITER_LINE, ERR_PREFIX, FLUSH_LINE,
+    MAX_DATA_LEN, RESPONSE_END_LINE,
 };
 
 /// Write a response-end message to `out`.
@@ -86,12 +87,16 @@ fn prefixed_and_suffixed_data_to_write(
 ) -> io::Result<usize> {
     let data_len = prefix.len() + data.len() + suffix.len();
     if data_len > MAX_DATA_LEN {
-        return Err(io::Error::other(Error::DataLengthLimitExceeded {
-            length_in_bytes: data_len,
-        }));
+        return Err(io::Error::other(
+            gix_error::message!("Cannot encode more than {MAX_DATA_LEN} bytes, got {data_len}")
+                .raise()
+                .into_error(),
+        ));
     }
     if data.is_empty() {
-        return Err(io::Error::other(Error::DataIsEmpty));
+        return Err(io::Error::other(
+            gix_error::message("Empty lines are invalid").raise().into_error(),
+        ));
     }
 
     let data_len = data_len + 4;

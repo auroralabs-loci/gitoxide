@@ -51,7 +51,7 @@ async fn read_pack_with_progress_extraction() -> crate::Result {
 
     let res = rd.read_line().await;
     assert_eq!(
-        res.expect("line")??.as_text().expect("data line").0.as_bstr(),
+        res.expect("line")?.map_err(gix_error::Exn::into_error)?.as_text().expect("data line").0.as_bstr(),
         b"NAK".as_bstr()
     );
     let mut seen_texts = Vec::<BString>::new();
@@ -156,9 +156,9 @@ async fn readline_reads_one_packet_line_at_a_time() -> crate::Result {
     let mut rd = StreamingPeekableIter::new(&buf[..], &[PacketLineRef::Flush], false);
 
     let mut r = rd.as_read();
-    let line = r.read_data_line().await.unwrap()??.as_bstr().unwrap();
+    let line = r.read_data_line().await.unwrap()?.map_err(gix_error::Exn::into_error)?.as_bstr().unwrap();
     assert_eq!(line, "808e50d724f604f69ab93c6da2919c014667bedb HEAD\0multi_ack thin-pack side-band side-band-64k ofs-delta shallow deepen-since deepen-not deepen-relative no-progress include-tag multi_ack_detailed symref=HEAD:refs/heads/master object-format=sha1 agent=git/2.28.0\n");
-    let line = r.read_data_line().await.unwrap()??.as_bstr().unwrap();
+    let line = r.read_data_line().await.unwrap()?.map_err(gix_error::Exn::into_error)?.as_bstr().unwrap();
     assert_eq!(line, "808e50d724f604f69ab93c6da2919c014667bedb refs/heads/master\n");
     let line = r.read_data_line().await;
     assert!(line.is_none(), "flush means `None`");
@@ -174,20 +174,20 @@ async fn readline_reads_one_packet_line_at_a_time() -> crate::Result {
     rd.reset();
 
     let mut r = rd.as_read();
-    let line = r.read_data_line().await.unwrap()??.as_bstr().unwrap();
+    let line = r.read_data_line().await.unwrap()?.map_err(gix_error::Exn::into_error)?.as_bstr().unwrap();
     assert_eq!(line.as_bstr(), "NAK\n");
 
     drop(r);
 
     let mut r = rd.as_read_with_sidebands(|_, _| std::ops::ControlFlow::Continue(()));
-    let line = r.read_data_line().await.unwrap()??.as_bstr().unwrap();
+    let line = r.read_data_line().await.unwrap()?.map_err(gix_error::Exn::into_error)?.as_bstr().unwrap();
     assert_eq!(
         line.as_bstr(),
         "\x02Enumerating objects: 3, done.\n",
         "sidebands are ignored entirely here"
     );
     for _ in 0..6 {
-        let _discard_more_progress = r.read_data_line().await.unwrap()??.as_bstr().unwrap();
+        let _discard_more_progress = r.read_data_line().await.unwrap()?.map_err(gix_error::Exn::into_error)?.as_bstr().unwrap();
     }
     let line = r.read_data_line().await;
     assert!(line.is_none(), "and we have reached the end");
@@ -201,7 +201,7 @@ async fn peek_past_an_actual_eof_is_an_error() -> crate::Result {
     let mut rd = StreamingPeekableIter::new(&input[..], &[], false);
     let mut reader = rd.as_read();
     let res = reader.peek_data_line().await;
-    assert_eq!(res.expect("one line")??, b"ERR e");
+    assert_eq!(res.expect("one line")?.map_err(gix_error::Exn::into_error)?, b"ERR e");
 
     let mut buf = String::new();
     reader.read_line_to_string(&mut buf).await?;
@@ -225,7 +225,7 @@ async fn peek_past_a_delimiter_is_no_error() -> crate::Result {
     let mut rd = StreamingPeekableIter::new(&input[..], &[PacketLineRef::Flush], false);
     let mut reader = rd.as_read();
     let res = reader.peek_data_line().await;
-    assert_eq!(res.expect("one line")??, b"hello");
+    assert_eq!(res.expect("one line")?.map_err(gix_error::Exn::into_error)?, b"hello");
 
     let mut buf = String::new();
     reader.read_line_to_string(&mut buf).await?;

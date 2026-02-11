@@ -212,6 +212,6 @@ fn empty_core_askpass_is_ignored() -> crate::Result {
     let repo = remote::repo("empty-core-askpass");
     let _ = repo
         .config_snapshot()
-        .credential_helpers("does-not-matter".try_into()?)?;
+        .credential_helpers("does-not-matter".try_into().map_err(gix_error::Exn::into_error)?)?;
     Ok(())
 }

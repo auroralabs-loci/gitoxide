@@ -1,39 +1,11 @@
-use std::convert::Infallible;
-
 use bstr::{BStr, BString, ByteSlice};
+use gix_error::{message, ErrorExt, ResultExt};
 
 use crate::Scheme;
 
 /// The error returned by [parse()](crate::parse()).
-#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-pub enum Error {
-    #[error("{} \"{url}\" is not valid UTF-8", kind.as_str())]
-    Utf8 {
-        url: BString,
-        kind: UrlKind,
-        source: std::str::Utf8Error,
-    },
-    #[error("{} {url:?} can not be parsed as valid URL", kind.as_str())]
-    Url {
-        url: String,
-        kind: UrlKind,
-        source: crate::simple_url::UrlParseError,
-    },
-
-    #[error("The host portion of the following URL is too long ({} bytes, {len} bytes total): {truncated_url:?}", truncated_url.len())]
-    TooLong { truncated_url: BString, len: usize },
-    #[error("{} \"{url}\" does not specify a path to a repository", kind.as_str())]
-    MissingRepositoryPath { url: BString, kind: UrlKind },
-    #[error("URL {url:?} is relative which is not allowed in this context")]
-    RelativeUrl { url: String },
-}
-
-impl From<Infallible> for Error {
-    fn from(_: Infallible) -> Self {
-        unreachable!("Cannot actually happen, but it seems there can't be a blanket impl for this")
-    }
-}
+pub type Error = gix_error::Exn<gix_error::Message>;
 
 ///
 #[derive(Debug, Clone, Copy)]
@@ -108,19 +80,23 @@ pub(crate) fn url(input: &BStr, protocol_end: usize) -> Result<crate::Url, Error
         .position(|b| *b == b'/')
         .unwrap_or(input.len() - protocol_end);
     if bytes_to_path > MAX_LEN || protocol_end > MAX_LEN {
-        return Err(Error::TooLong {
-            truncated_url: input[..(protocol_end + "://".len() + MAX_LEN).min(input.len())].into(),
-            len: input.len(),
-        });
+        let truncated_url: bstr::BString = input[..(protocol_end + "://".len() + MAX_LEN).min(input.len())].into();
+        let len = input.len();
+        return Err(message!(
+            "The host portion of the following URL is too long ({} bytes, {len} bytes total): {truncated_url:?}",
+            truncated_url.len()
+        )
+        .raise());
     }
     let (input, url) = input_to_utf8_and_url(input, UrlKind::Url)?;
     let scheme = Scheme::from(url.scheme.as_str());
 
     if matches!(scheme, Scheme::Git | Scheme::Ssh) && url.path.is_empty() {
-        return Err(Error::MissingRepositoryPath {
-            url: input.into(),
-            kind: UrlKind::Url,
-        });
+        return Err(message!(
+            "{} \"{input}\" does not specify a path to a repository",
+            UrlKind::Url.as_str()
+        )
+        .raise());
     }
 
     // Normalize empty path to "/" for http/https URLs only
@@ -188,10 +164,12 @@ pub(crate) fn scp(input: &BStr, colon: usize) -> Result<crate::Url, Error> {
     let path = &path[1..];
 
     if path.is_empty() {
-        return Err(Error::MissingRepositoryPath {
-            url: input.to_owned().into(),
-            kind: UrlKind::Scp,
-        });
+        return Err(message!(
+            "{} \"{}\" does not specify a path to a repository",
+            UrlKind::Scp.as_str(),
+            input
+        )
+        .raise());
     }
 
     // The path returned by the parsed url often has the wrong number of leading `/` characters but
@@ -199,11 +177,8 @@ pub(crate) fn scp(input: &BStr, colon: usize) -> Result<crate::Url, Error> {
     // To avoid the various off-by-one errors caused by the `/` characters, we keep using the path
     // determined above and can therefore skip parsing it here as well.
     let url_string = format!("ssh://{host}");
-    let url = crate::simple_url::ParsedUrl::parse(&url_string).map_err(|source| Error::Url {
-        url: input.to_owned(),
-        kind: UrlKind::Scp,
-        source,
-    })?;
+    let url = crate::simple_url::ParsedUrl::parse(&url_string)
+        .or_raise(|| message!("{} {:?} can not be parsed as valid URL", UrlKind::Scp.as_str(), input))?;
 
     // For SCP-like SSH URLs, strip leading '/' from paths starting with '/~'
     // e.g., "user@host:/~repo" -> path is "~repo", not "/~repo"
@@ -245,10 +220,12 @@ pub(crate) fn file_url(input: &BStr, protocol_colon: usize) -> Result<crate::Url
         .find('/')
         .or_else(|| cfg!(windows).then(|| input_after_protocol.find('\\')).flatten())
     else {
-        return Err(Error::MissingRepositoryPath {
-            url: input.to_owned().into(),
-            kind: UrlKind::Url,
-        });
+        return Err(message!(
+            "{} \"{}\" does not specify a path to a repository",
+            UrlKind::Url.as_str(),
+            input
+        )
+        .raise());
     };
 
     // We cannot use the url crate to parse host and path because it special cases Windows
@@ -297,10 +274,12 @@ pub(crate) fn file_url(input: &BStr, protocol_colon: usize) -> Result<crate::Url
 
 pub(crate) fn local(input: &BStr) -> Result<crate::Url, Error> {
     if input.is_empty() {
-        return Err(Error::MissingRepositoryPath {
-            url: input.to_owned(),
-            kind: UrlKind::Local,
-        });
+        return Err(message!(
+            "{} \"{}\" does not specify a path to a repository",
+            UrlKind::Local.as_str(),
+            input
+        )
+        .raise());
     }
 
     Ok(crate::Url {
@@ -315,11 +294,7 @@ pub(crate) fn local(input: &BStr) -> Result<crate::Url, Error> {
 }
 
 fn input_to_utf8(input: &BStr, kind: UrlKind) -> Result<&str, Error> {
-    std::str::from_utf8(input).map_err(|source| Error::Utf8 {
-        url: input.to_owned(),
-        kind,
-        source,
-    })
+    std::str::from_utf8(input).or_raise(|| message!("{} \"{}\" is not valid UTF-8", kind.as_str(), input))
 }
 
 fn input_to_utf8_and_url(input: &BStr, kind: UrlKind) -> Result<(&str, crate::simple_url::ParsedUrl), Error> {
@@ -327,17 +302,12 @@ fn input_to_utf8_and_url(input: &BStr, kind: UrlKind) -> Result<(&str, crate::si
     crate::simple_url::ParsedUrl::parse(input)
         .map(|url| (input, url))
         .map_err(|source| {
-            // If the parser rejected it as RelativeUrlWithoutBase, map to Error::RelativeUrl
+            // If the parser rejected it as "relative URL without a base", map to RelativeUrl
             // to match the expected error type for malformed URLs like "invalid:://"
-            match source {
-                crate::simple_url::UrlParseError::RelativeUrlWithoutBase => {
-                    Error::RelativeUrl { url: input.to_owned() }
-                }
-                _ => Error::Url {
-                    url: input.to_owned(),
-                    kind,
-                    source,
-                },
+            if source.to_string().contains("relative URL without a base") {
+                message!("URL {:?} is relative which is not allowed in this context", input).raise()
+            } else {
+                source.raise(message!("{} {:?} can not be parsed as valid URL", kind.as_str(), input))
             }
         })
 }

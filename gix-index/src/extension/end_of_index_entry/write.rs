@@ -1,3 +1,5 @@
+use gix_error::ResultExt;
+
 use crate::extension::{end_of_index_entry::SIGNATURE, Signature};
 
 /// Write this extension to out and generate a hash of `hash_kind` over all `prior_extensions` which are specified as `(signature, size)`
@@ -12,18 +14,22 @@ pub fn write_to(
     offset_to_extensions: u32,
     prior_extensions: impl IntoIterator<Item = (Signature, u32)>,
 ) -> Result<(), gix_hash::io::Error> {
-    out.write_all(&SIGNATURE)?;
+    out.write_all(&SIGNATURE)
+        .or_raise(|| gix_error::message("Could not write EOIE signature"))?;
     let extension_size: u32 = 4 + hash_kind.len_in_bytes() as u32;
-    out.write_all(&extension_size.to_be_bytes())?;
+    out.write_all(&extension_size.to_be_bytes())
+        .or_raise(|| gix_error::message("Could not write EOIE extension size"))?;
 
-    out.write_all(&offset_to_extensions.to_be_bytes())?;
+    out.write_all(&offset_to_extensions.to_be_bytes())
+        .or_raise(|| gix_error::message("Could not write EOIE offset"))?;
 
     let mut hasher = gix_hash::hasher(hash_kind);
     for (signature, size) in prior_extensions {
         hasher.update(&signature);
         hasher.update(&size.to_be_bytes());
     }
-    out.write_all(hasher.try_finalize()?.as_slice())?;
+    out.write_all(hasher.try_finalize()?.as_slice())
+        .or_raise(|| gix_error::message("Could not write EOIE hash"))?;
 
     Ok(())
 }

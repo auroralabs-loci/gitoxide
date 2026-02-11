@@ -14,8 +14,8 @@ pub mod parse {
         Io(#[from] std::io::Error),
         #[error(transparent)]
         DecodePacketline(#[from] gix_transport::packetline::decode::Error),
-        #[error(transparent)]
-        Id(#[from] gix_hash::decode::Error),
+        #[error("Could not parse object id")]
+        Id(#[source] gix_error::Error),
         #[error("{symref:?} could not be parsed. A symref is expected to look like <NAME>:<target>.")]
         MalformedSymref { symref: BString },
         #[error("{0:?} could not be parsed. A V1 ref line should be '<hex-hash> <path>'.")]

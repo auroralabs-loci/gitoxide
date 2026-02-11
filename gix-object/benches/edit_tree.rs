@@ -1,6 +1,7 @@
 use std::{cell::RefCell, hint::black_box, rc::Rc};
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use gix_error::ResultExt;
 use gix_hash::ObjectId;
 use gix_hashtable::hash_map::Entry;
 use gix_object::{tree, tree::EntryKind, Tree, WriteTo};
@@ -142,7 +143,7 @@ fn new_inmemory_writes() -> (TreeStore, impl FnMut(&Tree) -> Result<ObjectId, gi
         let mut buf = Vec::with_capacity(512);
         move |tree: &Tree| {
             buf.clear();
-            tree.write_to(&mut buf)?;
+            tree.write_to(&mut buf).or_raise(|| gix_error::message("write tree to buffer"))?;
             let id = gix_object::compute_hash(gix_hash::Kind::Sha1, gix_object::Kind::Tree, &buf)?;
             let mut borrowed = store.borrow_mut();
             match borrowed.entry(id) {
