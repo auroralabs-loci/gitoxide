@@ -14,8 +14,7 @@ fn write_connect_message(message: &[u8]) -> Vec<u8> {
 
 #[test]
 fn version_1_without_host_and_version() {
-    let request =
-        server::parse_connect_message(b"git-upload-pack hello/world\0").expect("valid message");
+    let request = server::parse_connect_message(b"git-upload-pack hello/world\0").expect("valid message");
 
     assert_eq!(request.service, Service::UploadPack);
     assert_eq!(request.repository_path, "hello/world");
@@ -26,8 +25,7 @@ fn version_1_without_host_and_version() {
 
 #[test]
 fn version_2_without_host_and_version() {
-    let request = server::parse_connect_message(b"git-upload-pack hello\\world\0\0version=2\0")
-        .expect("valid message");
+    let request = server::parse_connect_message(b"git-upload-pack hello\\world\0\0version=2\0").expect("valid message");
 
     assert_eq!(request.service, Service::UploadPack);
     assert_eq!(request.repository_path, r"hello\world");
@@ -38,10 +36,9 @@ fn version_2_without_host_and_version() {
 
 #[test]
 fn version_2_with_extra_parameters() {
-    let request = server::parse_connect_message(
-        b"git-upload-pack /path/project.git\0\0version=2\0key=value\0value-only\0",
-    )
-    .expect("valid message");
+    let request =
+        server::parse_connect_message(b"git-upload-pack /path/project.git\0\0version=2\0key=value\0value-only\0")
+            .expect("valid message");
 
     assert_eq!(request.service, Service::UploadPack);
     assert_eq!(request.repository_path, "/path/project.git");
@@ -56,9 +53,7 @@ fn version_2_with_extra_parameters() {
 
 #[test]
 fn with_host_without_port() {
-    let request =
-        server::parse_connect_message(b"git-upload-pack hello\\world\0host=host\0")
-            .expect("valid message");
+    let request = server::parse_connect_message(b"git-upload-pack hello\\world\0host=host\0").expect("valid message");
 
     assert_eq!(request.service, Service::UploadPack);
     assert_eq!(request.repository_path, r"hello\world");
@@ -69,10 +64,8 @@ fn with_host_without_port() {
 
 #[test]
 fn with_host_without_port_and_extra_parameters() {
-    let request = server::parse_connect_message(
-        b"git-upload-pack hello\\world\0host=host\0\0key=value\0value-only\0",
-    )
-    .expect("valid message");
+    let request = server::parse_connect_message(b"git-upload-pack hello\\world\0host=host\0\0key=value\0value-only\0")
+        .expect("valid message");
 
     assert_eq!(request.service, Service::UploadPack);
     assert_eq!(request.repository_path, r"hello\world");
@@ -88,8 +81,7 @@ fn with_host_without_port_and_extra_parameters() {
 #[test]
 fn with_host_with_port() {
     let request =
-        server::parse_connect_message(b"git-upload-pack hello\\world\0host=host:404\0")
-            .expect("valid message");
+        server::parse_connect_message(b"git-upload-pack hello\\world\0host=host:404\0").expect("valid message");
 
     assert_eq!(request.service, Service::UploadPack);
     assert_eq!(request.repository_path, r"hello\world");
@@ -100,10 +92,9 @@ fn with_host_with_port() {
 
 #[test]
 fn with_strange_host_and_port() {
-    let request = server::parse_connect_message(
-        b"git-upload-pack --upload-pack=attack\0host=--proxy=other-attack:404\0",
-    )
-    .expect("valid message");
+    let request =
+        server::parse_connect_message(b"git-upload-pack --upload-pack=attack\0host=--proxy=other-attack:404\0")
+            .expect("valid message");
 
     assert_eq!(request.service, Service::UploadPack);
     assert_eq!(request.repository_path, "--upload-pack=attack");
@@ -121,12 +112,10 @@ fn with_strange_host_and_port() {
 
 #[test]
 fn daemon_accept_v1_with_host() {
-    let client_bytes =
-        write_connect_message(b"git-upload-pack /repo.git\0host=myhost\0");
+    let client_bytes = write_connect_message(b"git-upload-pack /repo.git\0host=myhost\0");
 
     let (connection, request) =
-        server::blocking_io::daemon::accept(&client_bytes[..], Vec::new(), false)
-            .expect("valid connection");
+        server::blocking_io::daemon::accept(&client_bytes[..], Vec::new(), false).expect("valid connection");
 
     assert_eq!(connection.service, Service::UploadPack);
     assert_eq!(connection.repository_path, "/repo.git");
@@ -137,30 +126,23 @@ fn daemon_accept_v1_with_host() {
 
 #[test]
 fn daemon_accept_v2_with_host_and_port() {
-    let client_bytes =
-        write_connect_message(b"git-upload-pack /repo.git\0host=myhost:9418\0\0version=2\0");
+    let client_bytes = write_connect_message(b"git-upload-pack /repo.git\0host=myhost:9418\0\0version=2\0");
 
     let (connection, request) =
-        server::blocking_io::daemon::accept(&client_bytes[..], Vec::new(), false)
-            .expect("valid connection");
+        server::blocking_io::daemon::accept(&client_bytes[..], Vec::new(), false).expect("valid connection");
 
     assert_eq!(connection.service, Service::UploadPack);
     assert_eq!(connection.repository_path, "/repo.git");
     assert_eq!(connection.protocol, Protocol::V2);
-    assert_eq!(
-        request.virtual_host,
-        Some(("myhost".to_owned(), Some(9418)))
-    );
+    assert_eq!(request.virtual_host, Some(("myhost".to_owned(), Some(9418))));
 }
 
 #[test]
 fn daemon_accept_receive_pack() {
-    let client_bytes =
-        write_connect_message(b"git-receive-pack /repo.git\0host=myhost\0");
+    let client_bytes = write_connect_message(b"git-receive-pack /repo.git\0host=myhost\0");
 
     let (connection, _request) =
-        server::blocking_io::daemon::accept(&client_bytes[..], Vec::new(), false)
-            .expect("valid connection");
+        server::blocking_io::daemon::accept(&client_bytes[..], Vec::new(), false).expect("valid connection");
 
     assert_eq!(connection.service, Service::ReceivePack);
     assert_eq!(connection.repository_path, "/repo.git");
