@@ -1,7 +1,7 @@
 use gix_hash::ObjectId;
 use gix_packetline::blocking_io::StreamingPeekableIter;
 use gix_packetline::PacketLineRef;
-use gix_protocol::serve::{write_v1, RefAdvertisement};
+use gix_protocol::serve::{write_capabilities_v2, write_v1, write_v2_ls_refs, RefAdvertisement};
 
 fn read_data_line(reader: &mut StreamingPeekableIter<&[u8]>) -> Vec<u8> {
     match reader.read_line().unwrap().unwrap().unwrap() {
@@ -191,6 +191,112 @@ fn symref_is_encoded_in_capabilities() {
 
     let line = read_data_line(&mut reader);
     assert_eq!(line, format!("{} refs/heads/main\n", main_oid.to_hex()).as_bytes());
+
+    assert_flushed(&mut reader);
+}
+
+// --- V2 ls-refs tests ---
+
+#[test]
+fn v2_ls_refs_single_ref() {
+    let oid = hex_id(0xaa);
+    let refs = [RefAdvertisement {
+        name: b"refs/heads/main",
+        object_id: &oid,
+        peeled: None,
+        symref_target: None,
+    }];
+    let mut out = Vec::new();
+    write_v2_ls_refs(&mut out, &refs).unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, format!("{} refs/heads/main\n", oid.to_hex()).as_bytes());
+    assert_flushed(&mut reader);
+}
+
+#[test]
+fn v2_ls_refs_with_symref_and_peeled() {
+    let head_oid = hex_id(0xaa);
+    let tag_oid = hex_id(0xbb);
+    let commit_oid = hex_id(0xcc);
+    let refs = [
+        RefAdvertisement {
+            name: b"HEAD",
+            object_id: &head_oid,
+            peeled: None,
+            symref_target: Some(b"refs/heads/main"),
+        },
+        RefAdvertisement {
+            name: b"refs/tags/v1.0",
+            object_id: &tag_oid,
+            peeled: Some(&commit_oid),
+            symref_target: None,
+        },
+    ];
+    let mut out = Vec::new();
+    write_v2_ls_refs(&mut out, &refs).unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(
+        line,
+        format!("{} HEAD symref-target:refs/heads/main\n", head_oid.to_hex()).as_bytes()
+    );
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(
+        line,
+        format!("{} refs/tags/v1.0 peeled:{}\n", tag_oid.to_hex(), commit_oid.to_hex()).as_bytes()
+    );
+
+    assert_flushed(&mut reader);
+}
+
+// --- V2 capabilities tests ---
+
+#[test]
+fn v2_capabilities_plain() {
+    let mut out = Vec::new();
+    write_capabilities_v2(&mut out, &[("ls-refs", None), ("fetch", None)]).unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"version 2\n");
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"ls-refs\n");
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"fetch\n");
+
+    assert_flushed(&mut reader);
+}
+
+#[test]
+fn v2_capabilities_with_values() {
+    let mut out = Vec::new();
+    write_capabilities_v2(
+        &mut out,
+        &[("ls-refs", None), ("fetch", Some("shallow")), ("server-option", None)],
+    )
+    .unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"version 2\n");
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"ls-refs\n");
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"fetch=shallow\n");
+
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"server-option\n");
 
     assert_flushed(&mut reader);
 }

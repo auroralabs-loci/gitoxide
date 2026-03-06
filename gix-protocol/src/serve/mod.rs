@@ -1,5 +1,5 @@
 mod ref_advertisement;
-pub use ref_advertisement::write_v1;
+pub use ref_advertisement::{write_capabilities_v2, write_v1, write_v2_ls_refs};
 
 /// A reference to advertise to clients.
 pub struct RefAdvertisement<'a> {

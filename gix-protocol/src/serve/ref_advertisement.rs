@@ -55,3 +55,44 @@ pub fn write_v1<W: Write>(writer: &mut W, refs: &[RefAdvertisement<'_>], capabil
     flush_to_write(&mut *writer)?;
     Ok(())
 }
+
+/// Write a V2 ls-refs response to `writer`.
+pub fn write_v2_ls_refs<W: Write>(writer: &mut W, refs: &[RefAdvertisement<'_>]) -> io::Result<()> {
+    for r in refs.iter() {
+        let mut line = Vec::new();
+        r.object_id.write_hex_to(&mut line)?;
+        line.push(b' ');
+        line.extend_from_slice(r.name);
+
+        if let Some(symref_target) = r.symref_target {
+            line.extend_from_slice(b" symref-target:");
+            line.extend_from_slice(symref_target);
+        }
+
+        if let Some(peeled) = r.peeled {
+            line.extend_from_slice(b" peeled:");
+            peeled.write_hex_to(&mut line)?;
+        }
+        line.push(b'\n');
+        data_to_write(&line, &mut *writer)?;
+    }
+    flush_to_write(&mut *writer)?;
+    Ok(())
+}
+
+/// Write a V2 capabilities advertisement to `writer`.
+pub fn write_capabilities_v2<W: Write>(writer: &mut W, capabilities: &[(&str, Option<&str>)]) -> io::Result<()> {
+    data_to_write(b"version 2\n", &mut *writer)?;
+    for (name, val) in capabilities {
+        let mut line = Vec::new();
+        line.extend_from_slice(name.as_bytes());
+        if let Some(value) = val {
+            line.push(b'=');
+            line.extend_from_slice(value.as_bytes());
+        }
+        line.push(b'\n');
+        data_to_write(&line, &mut *writer)?;
+    }
+    flush_to_write(&mut *writer)?;
+    Ok(())
+}
