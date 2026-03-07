@@ -2,6 +2,7 @@ use gix_hash::ObjectId;
 use gix_packetline::blocking_io::encode::{data_to_write, flush_to_write};
 use gix_packetline::blocking_io::StreamingPeekableIter;
 use gix_packetline::PacketLineRef;
+use gix_protocol::serve::upload_pack::ack::{write_ack, write_nak, AckStatus};
 use gix_protocol::serve::upload_pack::want_haves::{parse_haves, parse_wants};
 use gix_protocol::serve::{write_capabilities_v2, write_v1, write_v2_ls_refs, RefAdvertisement};
 
@@ -399,4 +400,49 @@ fn parse_haves_empty_round() {
     let result = parse_haves(&mut reader).unwrap();
     assert!(result.haves.is_empty());
     assert!(!result.done);
+}
+
+// --- ACK/NAK tests ---
+
+#[test]
+fn ack_common() {
+    let oid = hex_id(0xaa);
+    let mut out = Vec::new();
+    write_ack(&mut out, &oid, AckStatus::Common).unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, format!("ACK {} common\n", oid.to_hex()).as_bytes());
+}
+
+#[test]
+fn ack_ready() {
+    let oid = hex_id(0xbb);
+    let mut out = Vec::new();
+    write_ack(&mut out, &oid, AckStatus::Ready).unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, format!("ACK {} ready\n", oid.to_hex()).as_bytes());
+}
+
+#[test]
+fn ack_final() {
+    let oid = hex_id(0xcc);
+    let mut out = Vec::new();
+    write_ack(&mut out, &oid, AckStatus::Final).unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, format!("ACK {}\n", oid.to_hex()).as_bytes());
+}
+
+#[test]
+fn nak() {
+    let mut out = Vec::new();
+    write_nak(&mut out).unwrap();
+
+    let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"NAK\n");
 }
