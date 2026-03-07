@@ -3,7 +3,10 @@ use gix_packetline::blocking_io::encode::{data_to_write, flush_to_write};
 use gix_packetline::blocking_io::StreamingPeekableIter;
 use gix_packetline::PacketLineRef;
 use gix_protocol::serve::upload_pack::ack::{write_ack, write_nak, AckStatus};
+use gix_protocol::serve::upload_pack::serve_upload_pack_v1;
 use gix_protocol::serve::upload_pack::want_haves::{parse_haves, parse_wants};
+use gix_transport::server::blocking_io::connection::Connection;
+use gix_transport::{Protocol, Service};
 use gix_protocol::serve::{write_capabilities_v2, write_v1, write_v2_ls_refs, RefAdvertisement};
 
 fn read_data_line(reader: &mut StreamingPeekableIter<&[u8]>) -> Vec<u8> {
@@ -445,4 +448,227 @@ fn nak() {
     let mut reader = StreamingPeekableIter::new(&out[..], &[PacketLineRef::Flush], false);
     let line = read_data_line(&mut reader);
     assert_eq!(line, b"NAK\n");
+}
+
+// --- upload-pack orchestrator tests ---
+
+fn build_client_input(wants: &[ObjectId], haves: &[ObjectId], done: bool) -> Vec<u8> {
+    let mut buf = Vec::new();
+    for (i, oid) in wants.iter().enumerate() {
+        let line = if i == 0 {
+            format!("want {} ofs-delta\n", oid.to_hex())
+        } else {
+            format!("want {}\n", oid.to_hex())
+        };
+        data_to_write(line.as_bytes(), &mut buf).unwrap();
+    }
+    flush_to_write(&mut buf).unwrap();
+    for oid in haves {
+        data_to_write(format!("have {}\n", oid.to_hex()).as_bytes(), &mut buf).unwrap();
+    }
+    if done {
+        data_to_write(b"done\n", &mut buf).unwrap();
+    }
+    flush_to_write(&mut buf).unwrap();
+    buf
+}
+
+#[test]
+fn upload_pack_v1_fresh_clone() {
+    let ref_oid = hex_id(0xaa);
+    let input = build_client_input(&[ref_oid], &[], true);
+    let mut output = Vec::new();
+
+    let mut conn = Connection::new(
+        &input[..],
+        &mut output,
+        Service::UploadPack,
+        "/repo.git",
+        Protocol::V1,
+        false,
+    );
+
+    let refs = [RefAdvertisement {
+        name: b"refs/heads/main",
+        object_id: &ref_oid,
+        peeled: None,
+        symref_target: None,
+    }];
+    let mut pack_written = false;
+    serve_upload_pack_v1(
+        &mut conn,
+        &refs,
+        |_oid| false, // client has nothing
+        |wants, common, _writer| {
+            assert_eq!(wants.len(), 1);
+            assert_eq!(wants[0], ref_oid);
+            assert!(common.is_empty());
+            pack_written = true;
+            Ok(())
+        },
+        &["ofs-delta"],
+    )
+    .unwrap();
+
+    assert!(pack_written);
+
+    // Verify output: ref advertisement + NAK + NAK
+    let mut reader = StreamingPeekableIter::new(&output[..], &[PacketLineRef::Flush], false);
+    // First line: ref advertisement
+    let line = read_data_line(&mut reader);
+    assert_eq!(
+        line,
+        format!("{} refs/heads/main\0ofs-delta\n", ref_oid.to_hex()).as_bytes()
+    );
+    // Flush after ref advertisement
+    assert_flushed(&mut reader);
+}
+
+#[test]
+fn upload_pack_v1_with_common_objects() {
+    let ref_oid = hex_id(0xaa);
+    let common_oid = hex_id(0xbb);
+    let input = build_client_input(&[ref_oid], &[common_oid], true);
+    let mut output = Vec::new();
+
+    let mut conn = Connection::new(
+        &input[..],
+        &mut output,
+        Service::UploadPack,
+        "/repo.git",
+        Protocol::V1,
+        false,
+    );
+
+    let refs = [RefAdvertisement {
+        name: b"refs/heads/main",
+        object_id: &ref_oid,
+        peeled: None,
+        symref_target: None,
+    }];
+    serve_upload_pack_v1(
+        &mut conn,
+        &refs,
+        |oid| oid == common_oid, // server has this object
+        |wants, common, _writer| {
+            assert_eq!(wants, &[ref_oid]);
+            assert_eq!(common, &[common_oid]);
+            Ok(())
+        },
+        &["ofs-delta"],
+    )
+    .unwrap();
+}
+
+#[test]
+fn upload_pack_v1_empty_wants_returns_early() {
+    // Client sends no wants — up to date
+    let mut input = Vec::new();
+    flush_to_write(&mut input).unwrap(); // empty wants section
+    let mut output = Vec::new();
+
+    let ref_oid = hex_id(0xaa);
+    let mut conn = Connection::new(
+        &input[..],
+        &mut output,
+        Service::UploadPack,
+        "/repo.git",
+        Protocol::V1,
+        false,
+    );
+
+    let refs = [RefAdvertisement {
+        name: b"refs/heads/main",
+        object_id: &ref_oid,
+        peeled: None,
+        symref_target: None,
+    }];
+    serve_upload_pack_v1(
+        &mut conn,
+        &refs,
+        |_| false,
+        |_, _, _| panic!("should not generate pack"),
+        &["ofs-delta"],
+    )
+    .unwrap();
+}
+
+#[test]
+fn upload_pack_v1_multi_round_negotiation() {
+    let ref_oid = hex_id(0xaa);
+    let have1 = hex_id(0xbb);
+    let have2 = hex_id(0xcc);
+    let have3 = hex_id(0xdd);
+
+    // Build input: wants, then two rounds of haves, then done
+    let mut input = Vec::new();
+    // wants
+    data_to_write(format!("want {} ofs-delta\n", ref_oid.to_hex()).as_bytes(), &mut input).unwrap();
+    flush_to_write(&mut input).unwrap();
+    // round 1: server doesn't have these
+    data_to_write(format!("have {}\n", have1.to_hex()).as_bytes(), &mut input).unwrap();
+    flush_to_write(&mut input).unwrap();
+    // round 2: server has have2, doesn't have have3
+    data_to_write(format!("have {}\n", have2.to_hex()).as_bytes(), &mut input).unwrap();
+    data_to_write(format!("have {}\n", have3.to_hex()).as_bytes(), &mut input).unwrap();
+    data_to_write(b"done\n", &mut input).unwrap();
+    flush_to_write(&mut input).unwrap();
+
+    let mut output = Vec::new();
+    let mut conn = Connection::new(
+        &input[..],
+        &mut output,
+        Service::UploadPack,
+        "/repo.git",
+        Protocol::V1,
+        false,
+    );
+
+    let refs = [RefAdvertisement {
+        name: b"refs/heads/main",
+        object_id: &ref_oid,
+        peeled: None,
+        symref_target: None,
+    }];
+    serve_upload_pack_v1(
+        &mut conn,
+        &refs,
+        |oid| oid == have2, // only have2 is common
+        |wants, common, _writer| {
+            assert_eq!(wants, &[ref_oid]);
+            assert_eq!(common, &[have2]);
+            Ok(())
+        },
+        &["ofs-delta"],
+    )
+    .unwrap();
+
+    // Verify output after ref advertisement + flush:
+    // Round 1: NAK (no common)
+    // Round 2: ACK have2 common, then final ACK have2
+    let mut reader = StreamingPeekableIter::new(&output[..], &[PacketLineRef::Flush], false);
+    // ref advertisement
+    let line = read_data_line(&mut reader);
+    assert_eq!(
+        line,
+        format!("{} refs/heads/main\0ofs-delta\n", ref_oid.to_hex()).as_bytes()
+    );
+    assert_flushed(&mut reader);
+    // reset to read past flush
+    reader.reset();
+    // round 1: NAK
+    let line = read_data_line(&mut reader);
+    assert_eq!(line, b"NAK\n");
+    // round 2: ACK common
+    let line = read_data_line(&mut reader);
+    assert_eq!(
+        line,
+        format!("ACK {} common\n", have2.to_hex()).as_bytes()
+    );
+    // final ACK
+    let line = read_data_line(&mut reader);
+    assert_eq!(
+        line,
+        format!("ACK {}\n", have2.to_hex()).as_bytes()
+    );
 }
