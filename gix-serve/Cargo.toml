@@ -36,6 +36,7 @@ gix-testtools = { path = "../tests/tools" }
 gix-odb = { version = "^0.77.0", path = "../gix-odb" }
 gix-packetline = { version = "^0.21.1", path = "../gix-packetline", features = ["blocking-io"] }
 gix-transport = { version = "^0.55.0", path = "../gix-transport", features = ["blocking-server"] }
+gix-serve = { path = ".", features = ["blocking-server"] }
 
 [package.metadata.docs.rs]
 all-features = true

@@ -2340,6 +2340,7 @@ dependencies = [
  "gix-packetline",
  "gix-protocol",
  "gix-ref",
+ "gix-serve",
  "gix-testtools",
  "gix-transport",
  "thiserror 2.0.18",

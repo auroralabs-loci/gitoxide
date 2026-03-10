@@ -45,12 +45,12 @@ pub fn serve_upload_pack_v1<R: Read, W: Write>(
             }
         }
 
-        if !found_common {
-            write_nak(&mut connection.writer)?;
-        }
-
         if haves.done {
             break;
+        }
+
+        if !found_common {
+            write_nak(&mut connection.writer)?;
         }
         connection.line_provider.reset();
     }
