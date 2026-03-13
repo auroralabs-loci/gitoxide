@@ -2334,7 +2334,6 @@ dependencies = [
  "bstr",
  "gix-features",
  "gix-hash",
- "gix-object",
  "gix-odb",
  "gix-pack",
  "gix-packetline",
