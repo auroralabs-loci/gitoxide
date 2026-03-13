@@ -72,7 +72,7 @@ pub fn parse_wants<R: Read>(reader: &mut StreamingPeekableIter<R>) -> Result<Wan
 
                 if is_first {
                     if let Some(caps) = caps_str {
-                        capabilities = caps.split(|b| *b == b' ').map(|c| c.into()).collect();
+                        capabilities = caps.split(|b| *b == b' ').map(Into::into).collect();
                     }
                     is_first = false;
                 }

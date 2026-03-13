@@ -9,7 +9,7 @@ use gix_protocol::serve::{
 use gix_ref::file::Store;
 use gix_transport::{server::blocking_io::connection::Connection, Protocol};
 
-use crate::{refs::collect_refs, AdvertisableRef};
+use crate::{pack::generate_pack, refs::collect_refs, AdvertisableRef};
 
 impl AdvertisableRef {
     /// Borrow as a `RefAdvertisement` for the protocol layer.
@@ -18,7 +18,7 @@ impl AdvertisableRef {
             name: &self.name,
             object_id: &self.object_id,
             peeled: self.peeled.as_deref(),
-            symref_target: self.symref_target.as_ref().map(|s| s.as_ref()),
+            symref_target: self.symref_target.as_ref().map(AsRef::as_ref),
         }
     }
 }
@@ -48,7 +48,7 @@ pub fn serve_upload_pack<R: Read, W: Write, F: Find + Send + Clone + 'static>(
     let has_object = |oid: &oid| db.contains(oid);
 
     let generate_pack = |wants: &[ObjectId], haves: &[ObjectId], out: &mut dyn Write| {
-        crate::pack::generate_pack(db.clone(), wants, haves, out).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+        generate_pack(db.clone(), wants, haves, out).map_err(io::Error::other)
     };
 
     match protocol {

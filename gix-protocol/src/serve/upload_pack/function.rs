@@ -30,7 +30,8 @@ pub fn serve_upload_pack_v1<R: Read, W: Write>(
     let wants = parse_wants(&mut connection.line_provider)?;
     if wants.wants.is_empty() {
         return Ok(());
-    };
+    }
+
     connection.line_provider.reset();
 
     let mut common = Vec::new();
@@ -59,7 +60,7 @@ pub fn serve_upload_pack_v1<R: Read, W: Write>(
         write_ack(&mut connection.writer, last, AckStatus::Final)?;
     } else {
         write_nak(&mut connection.writer)?;
-    };
+    }
 
     let want_ids: Vec<ObjectId> = wants.wants.iter().map(|w| w.id).collect();
     generate_pack(&want_ids, &common, &mut connection.writer)?;

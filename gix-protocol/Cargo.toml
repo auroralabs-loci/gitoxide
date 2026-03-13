@@ -59,7 +59,6 @@ fetch = [
 ## If set, blocking server-side protocol implementations are available.
 blocking-server = [
     "gix-transport/blocking-server",
-    "maybe-async/is_sync",
     "serve",
 ]
 ## Add implementations for serving (upload-pack).

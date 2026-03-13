@@ -18,7 +18,7 @@ pub fn write_v1<W: Write>(writer: &mut W, refs: &[RefAdvertisement<'_>], capabil
             })
         })
         .collect();
-    all_caps.extend(capabilities.iter().map(|c| c.to_string()));
+    all_caps.extend(capabilities.iter().map(ToString::to_string));
     let caps = all_caps.join(" ");
 
     if refs.is_empty() {

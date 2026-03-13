@@ -116,7 +116,7 @@ fn v1_empty_wants() {
     serve_upload_pack(&store, db, &mut conn, Protocol::V1).unwrap();
 
     assert!(!output.is_empty());
-    assert!(output.windows(4).position(|w| w == b"PACK").is_none());
+    assert!(!output.windows(4).any(|w| w == b"PACK"));
 }
 
 #[test]
