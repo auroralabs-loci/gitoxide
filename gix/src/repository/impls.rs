@@ -151,6 +151,7 @@ impl gix_object::Find for crate::Repository {
             buffer.clear();
             return Ok(Some(gix_object::Data {
                 kind: gix_object::Kind::Tree,
+                hash_len: self.object_hash().len_in_bytes(),
                 data: &[],
             }));
         }

@@ -64,8 +64,8 @@ impl Repository {
         let new_tree = new_tree.into().unwrap_or(&empty_tree);
         let mut out = Vec::new();
         gix_diff::tree_with_rewrites(
-            TreeRefIter::from_bytes(&old_tree.data),
-            TreeRefIter::from_bytes(&new_tree.data),
+            TreeRefIter::from_bytes(&old_tree.data, old_tree.id.kind().len_in_bytes()),
+            TreeRefIter::from_bytes(&new_tree.data, new_tree.id.kind().len_in_bytes()),
             &mut cache,
             &mut Default::default(),
             &self.objects,

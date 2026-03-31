@@ -50,7 +50,7 @@ impl Platform<'_, '_> {
     where
         V: gix_traverse::tree::Visit,
     {
-        let root = gix_object::TreeRefIter::from_bytes(&self.root.data);
+        let root = gix_object::TreeRefIter::from_bytes(&self.root.data, self.root.id.kind().len_in_bytes());
         let state = gix_traverse::tree::breadthfirst::State::default();
         gix_traverse::tree::breadthfirst(root, state, &self.root.repo.objects, delegate)
     }
