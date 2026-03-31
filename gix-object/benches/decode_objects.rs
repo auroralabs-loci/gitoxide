@@ -21,10 +21,24 @@ fn parse_tag(c: &mut Criterion) {
 
 fn parse_tree(c: &mut Criterion) {
     c.bench_function("TreeRef()", |b| {
-        b.iter(|| black_box(gix_object::TreeRef::from_bytes(TREE)).unwrap());
+        b.iter(|| {
+            black_box(gix_object::TreeRef::from_bytes(
+                TREE,
+                gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
+            ))
+            .unwrap()
+        });
     });
     c.bench_function("TreeRefIter()", |b| {
-        b.iter(|| black_box(gix_object::TreeRefIter::from_bytes(TREE).count()));
+        b.iter(|| {
+            black_box(
+                gix_object::TreeRefIter::from_bytes(
+                    TREE,
+                    gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
+                )
+                .count(),
+            )
+        });
     });
 }
 
