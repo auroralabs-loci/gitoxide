@@ -3,7 +3,7 @@
 use crate::{BlobRef, CommitRef, CommitRefIter, Data, Kind, ObjectRef, TagRef, TagRefIter, TreeRef, TreeRefIter};
 
 impl<'a> Data<'a> {
-    /// Constructs a new data object from `kind` and `data`.
+    /// Constructs a new data object from `kind`, `hash_len` and `data`.
     pub fn new(kind: Kind, hash_len: usize, data: &'a [u8]) -> Data<'a> {
         Data { kind, hash_len, data }
     }
