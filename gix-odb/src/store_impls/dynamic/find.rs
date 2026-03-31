@@ -164,6 +164,7 @@ where
                             Ok(r) => Ok((
                                 gix_object::Data {
                                     kind: r.kind,
+                                    hash_len: pack.object_hash().len_in_bytes(),
                                     data: buffer.as_slice(),
                                 },
                                 Some(gix_pack::data::entry::Location {
@@ -265,6 +266,7 @@ where
                                     (
                                         gix_object::Data {
                                             kind: r.kind,
+                                            hash_len: pack.object_hash().len_in_bytes(),
                                             data: buffer.as_slice(),
                                         },
                                         Some(gix_pack::data::entry::Location {

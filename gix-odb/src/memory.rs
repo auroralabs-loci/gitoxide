@@ -152,6 +152,7 @@ where
                 buffer.extend_from_slice(data);
                 return Ok(Some(Data {
                     kind: *kind,
+                    hash_len: id.kind().len_in_bytes(),
                     data: &*buffer,
                 }));
             }
