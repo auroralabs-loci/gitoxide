@@ -263,6 +263,9 @@ pub struct TreeRef<'a> {
 /// A directory snapshot containing files (blobs), directories (trees) and submodules (commits), lazily evaluated.
 #[derive(Default, PartialEq, Eq, Debug, Hash, Ord, PartialOrd, Clone, Copy)]
 pub struct TreeRefIter<'a> {
+    /// TODO:
+    /// Document.
+    hash_len: usize,
     /// The directories and files contained in this tree.
     data: &'a [u8],
 }
@@ -289,6 +292,9 @@ impl Tree {
 pub struct Data<'a> {
     /// kind of object
     pub kind: Kind,
+    /// TODO:
+    /// Document.
+    pub hash_len: usize,
     /// decoded, decompressed data, owned by a backing store.
     pub data: &'a [u8],
 }

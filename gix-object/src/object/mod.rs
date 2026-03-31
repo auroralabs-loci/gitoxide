@@ -191,7 +191,7 @@ pub enum LooseDecodeError {
 
 impl<'a> ObjectRef<'a> {
     /// Deserialize an object from a loose serialisation
-    pub fn from_loose(data: &'a [u8]) -> Result<ObjectRef<'a>, LooseDecodeError> {
+    pub fn from_loose(data: &'a [u8], hash_len: usize) -> Result<ObjectRef<'a>, LooseDecodeError> {
         let (kind, size, offset) = loose_header(data)?;
 
         let body = &data[offset..]
@@ -200,13 +200,13 @@ impl<'a> ObjectRef<'a> {
                 message: "object data was shorter than its size declared in the header",
             })?;
 
-        Ok(Self::from_bytes(kind, body)?)
+        Ok(Self::from_bytes(kind, hash_len, body)?)
     }
 
     /// Deserialize an object of `kind` from the given `data`.
-    pub fn from_bytes(kind: Kind, data: &'a [u8]) -> Result<ObjectRef<'a>, crate::decode::Error> {
+    pub fn from_bytes(kind: Kind, hash_len: usize, data: &'a [u8]) -> Result<ObjectRef<'a>, crate::decode::Error> {
         Ok(match kind {
-            Kind::Tree => ObjectRef::Tree(TreeRef::from_bytes(data)?),
+            Kind::Tree => ObjectRef::Tree(TreeRef::from_bytes(data, hash_len)?),
             Kind::Blob => ObjectRef::Blob(BlobRef { data }),
             Kind::Commit => ObjectRef::Commit(CommitRef::from_bytes(data)?),
             Kind::Tag => ObjectRef::Tag(TagRef::from_bytes(data)?),

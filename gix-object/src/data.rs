@@ -4,8 +4,8 @@ use crate::{BlobRef, CommitRef, CommitRefIter, Data, Kind, ObjectRef, TagRef, Ta
 
 impl<'a> Data<'a> {
     /// Constructs a new data object from `kind` and `data`.
-    pub fn new(kind: Kind, data: &'a [u8]) -> Data<'a> {
-        Data { kind, data }
+    pub fn new(kind: Kind, hash_len: usize, data: &'a [u8]) -> Data<'a> {
+        Data { kind, hash_len, data }
     }
     /// Decodes the data in the backing slice into a [`ObjectRef`], allowing to access all of its data
     /// conveniently. The cost of parsing an object is negligible.
@@ -14,7 +14,7 @@ impl<'a> Data<'a> {
     /// using [`crate::ObjectRef::into_owned()`].
     pub fn decode(&self) -> Result<ObjectRef<'a>, crate::decode::Error> {
         Ok(match self.kind {
-            Kind::Tree => ObjectRef::Tree(TreeRef::from_bytes(self.data)?),
+            Kind::Tree => ObjectRef::Tree(TreeRef::from_bytes(self.data, self.hash_len)?),
             Kind::Blob => ObjectRef::Blob(BlobRef { data: self.data }),
             Kind::Commit => ObjectRef::Commit(CommitRef::from_bytes(self.data)?),
             Kind::Tag => ObjectRef::Tag(TagRef::from_bytes(self.data)?),
@@ -25,7 +25,7 @@ impl<'a> Data<'a> {
     /// `None` if this is not a tree object.
     pub fn try_into_tree_iter(self) -> Option<TreeRefIter<'a>> {
         match self.kind {
-            Kind::Tree => Some(TreeRefIter::from_bytes(self.data)),
+            Kind::Tree => Some(TreeRefIter::from_bytes(self.data, self.hash_len)),
             _ => None,
         }
     }
