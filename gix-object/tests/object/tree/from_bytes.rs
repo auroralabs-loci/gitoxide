@@ -4,10 +4,7 @@ use crate::{fixture_name, hex_to_id};
 
 #[test]
 fn empty() -> crate::Result {
-    let tree_ref = TreeRef::from_bytes(
-        &[],
-        gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
-    )?;
+    let tree_ref = TreeRef::from_bytes(&[], gix_testtools::hash_kind_from_env().unwrap_or_default())?;
     assert_eq!(
         tree_ref,
         TreeRef { entries: vec![] },
@@ -27,10 +24,7 @@ fn empty() -> crate::Result {
 #[test]
 fn everything() -> crate::Result {
     let fixture = fixture_name("tree", "everything.tree");
-    let tree_ref = TreeRef::from_bytes(
-        &fixture,
-        gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
-    )?;
+    let tree_ref = TreeRef::from_bytes(&fixture, gix_testtools::hash_kind_from_env().unwrap_or_default())?;
     assert_eq!(
         tree_ref,
         TreeRef {
@@ -70,24 +64,18 @@ fn everything() -> crate::Result {
 fn invalid() {
     let fixture = fixture_name("tree", "definitely-special.tree");
     let partial_tree = &fixture[..fixture.len() / 2];
-    let err = TreeRef::from_bytes(
-        partial_tree,
-        gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
-    )
-    .unwrap_err()
-    .to_string();
+    let err = TreeRef::from_bytes(partial_tree, gix_testtools::hash_kind_from_env().unwrap_or_default())
+        .unwrap_err()
+        .to_string();
     if cfg!(feature = "verbose-object-parsing-errors") {
         assert!(err.starts_with("object parsing failed at `100644"), "{err}");
     } else {
         assert_eq!(err, "object parsing failed");
     }
     assert_eq!(
-        TreeRefIter::from_bytes(
-            partial_tree,
-            gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes()
-        )
-        .take_while(Result::is_ok)
-        .count(),
+        TreeRefIter::from_bytes(partial_tree, gix_testtools::hash_kind_from_env().unwrap_or_default())
+            .take_while(Result::is_ok)
+            .count(),
         9,
         "we can decode about half of it before failing"
     );
@@ -96,11 +84,7 @@ fn invalid() {
 #[test]
 fn fuzzed() {
     assert!(
-        gix_object::TreeRef::from_bytes(
-            b"2",
-            gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes()
-        )
-        .is_err(),
+        gix_object::TreeRef::from_bytes(b"2", gix_testtools::hash_kind_from_env().unwrap_or_default()).is_err(),
         "fail, but don't crash"
     );
 }
@@ -117,18 +101,12 @@ fn special_trees() -> crate::Result {
         ("special-5", 17),
     ] {
         let fixture = fixture_name("tree", &format!("{name}.tree"));
-        let actual = TreeRef::from_bytes(
-            &fixture,
-            gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
-        )?;
+        let actual = TreeRef::from_bytes(&fixture, gix_testtools::hash_kind_from_env().unwrap_or_default())?;
         assert_eq!(actual.entries.len(), expected_entry_count, "{name}");
         assert_eq!(
-            TreeRefIter::from_bytes(
-                &fixture,
-                gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes()
-            )
-            .map(Result::unwrap)
-            .count(),
+            TreeRefIter::from_bytes(&fixture, gix_testtools::hash_kind_from_env().unwrap_or_default())
+                .map(Result::unwrap)
+                .count(),
             expected_entry_count,
             "{name}"
         );

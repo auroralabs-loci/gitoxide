@@ -10,11 +10,7 @@ use crate::{fixture_name, hex_to_id};
 #[test]
 fn empty() {
     assert_eq!(
-        TreeRefIter::from_bytes(
-            &[],
-            gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes()
-        )
-        .count(),
+        TreeRefIter::from_bytes(&[], gix_testtools::hash_kind_from_env().unwrap_or_default()).count(),
         0,
         "empty trees are definitely ok"
     );
@@ -25,7 +21,7 @@ fn error_handling() {
     let data = fixture_name("tree", "everything.tree");
     let iter = TreeRefIter::from_bytes(
         &data[..data.len() / 2],
-        gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
+        gix_testtools::hash_kind_from_env().unwrap_or_default(),
     );
     let entries = iter.collect::<Vec<_>>();
     assert!(
@@ -37,22 +33,16 @@ fn error_handling() {
 #[test]
 fn offset_to_next_entry() {
     let buf = fixture_name("tree", "everything.tree");
-    let mut iter = TreeRefIter::from_bytes(
-        &buf,
-        gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
-    );
+    let mut iter = TreeRefIter::from_bytes(&buf, gix_testtools::hash_kind_from_env().unwrap_or_default());
     assert_eq!(iter.offset_to_next_entry(&buf), 0, "first entry is always at 0");
     iter.next();
 
     let actual = iter.offset_to_next_entry(&buf);
     assert_eq!(actual, 31, "now the offset increases");
     assert_eq!(
-        TreeRefIter::from_bytes(
-            &buf[actual..],
-            gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes()
-        )
-        .next()
-        .map(|e| e.unwrap().filename),
+        TreeRefIter::from_bytes(&buf[actual..], gix_testtools::hash_kind_from_env().unwrap_or_default())
+            .next()
+            .map(|e| e.unwrap().filename),
         iter.next().map(|e| e.unwrap().filename),
         "One can now start the iteration at a certain entry"
     );
@@ -63,7 +53,7 @@ fn everything() -> crate::Result {
     assert_eq!(
         TreeRefIter::from_bytes(
             &fixture_name("tree", "everything.tree"),
-            gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes()
+            gix_testtools::hash_kind_from_env().unwrap_or_default()
         )
         .collect::<Result<Vec<_>, _>>()?,
         vec![
