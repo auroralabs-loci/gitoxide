@@ -192,7 +192,7 @@ where
             // …but write nothing
             Ok(Some(gix::objs::Data {
                 kind,
-                hash_len: id.kind().len_in_bytes(),
+                hash_kind: id.kind(),
                 data: buf,
             }))
         } else {
@@ -209,7 +209,7 @@ impl gix::objs::Find for Empty {
         buffer.clear();
         Ok(Some(gix::objs::Data {
             kind: gix::object::Kind::Blob,
-            hash_len: id.kind().len_in_bytes(),
+            hash_kind: id.kind(),
             data: buffer,
         }))
     }
