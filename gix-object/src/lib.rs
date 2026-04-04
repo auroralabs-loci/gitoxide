@@ -4,7 +4,7 @@
 //! ## Decode Borrowed Objects
 //!
 //! ```
-//! let object = gix_object::ObjectRef::from_loose(b"blob 5\0hello").unwrap();
+//! let object = gix_object::ObjectRef::from_loose(b"blob 5\0hello", gix_hash::Kind::Sha1).unwrap();
 //! let blob = object.as_blob().unwrap();
 //!
 //! assert_eq!(blob.data, b"hello");
@@ -16,7 +16,7 @@
 //! ```
 //! use gix_object::WriteTo;
 //!
-//! let object = gix_object::ObjectRef::from_loose(b"blob 5\0hello")
+//! let object = gix_object::ObjectRef::from_loose(b"blob 5\0hello", gix_hash::Kind::Sha1)
 //!     .unwrap()
 //!     .into_owned()
 //!     .unwrap();
