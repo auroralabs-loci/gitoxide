@@ -16,7 +16,7 @@ features = ["sha1", "sha256"]
 
 [dependencies.gix-object]
 path = ".."
-features = ["sha1", "sha256"]
+features = ["sha1"]
 
 # Prevent this from interfering with workspaces
 [workspace]
