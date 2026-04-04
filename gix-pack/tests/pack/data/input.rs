@@ -32,7 +32,7 @@ mod lookup_ref_delta_objects {
     fn entry(header: Header, data: &'static [u8]) -> input::Entry {
         let obj = gix_object::Data {
             kind: header.as_kind().unwrap_or(gix_object::Kind::Blob),
-            hash_len: gix_testtools::hash_kind_from_env().unwrap_or_default().len_in_bytes(),
+            hash_kind: gix_testtools::hash_kind_from_env().unwrap_or_default(),
             data,
         };
         let mut entry = input::Entry::from_data_obj(&obj, 0).expect("valid object");
@@ -86,7 +86,7 @@ mod lookup_ref_delta_objects {
                 buf.copy_from_slice(data);
                 Ok(Some(gix_object::Data {
                     kind: gix_object::Kind::Blob,
-                    hash_len: id.kind().len_in_bytes(),
+                    hash_kind: id.kind(),
                     data: buf.as_slice(),
                 }))
             } else {

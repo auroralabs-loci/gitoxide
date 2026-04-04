@@ -163,7 +163,7 @@ impl ReferenceExt for Reference {
                     let gix_object::Data {
                         kind,
                         data,
-                        hash_len: _,
+                        hash_kind: _,
                     } = objects
                         .try_find(&oid, &mut buf)?
                         .ok_or_else(|| peel::to_id::Error::NotFound {

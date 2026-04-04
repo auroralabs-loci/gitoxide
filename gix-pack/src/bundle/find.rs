@@ -58,7 +58,7 @@ impl crate::Bundle {
                     gix_object::Data {
                         kind: r.kind,
                         data: out.as_slice(),
-                        hash_len: self.pack.object_hash().len_in_bytes(),
+                        hash_kind: self.pack.object_hash(),
                     },
                     crate::data::entry::Location {
                         pack_id: self.pack.id,

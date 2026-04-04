@@ -42,7 +42,7 @@ impl gix_object::Find for EmptyCommit {
     ) -> Result<Option<gix_object::Data<'a>>, gix_object::find::Error> {
         Ok(Some(gix_object::Data {
             kind: gix_object::Kind::Commit,
-            hash_len: id.kind().len_in_bytes(),
+            hash_kind: id.kind(),
             data: &[],
         }))
     }
