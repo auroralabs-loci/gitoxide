@@ -39,7 +39,7 @@ where
         return ControlFlow::Break(None);
     };
 
-    let Some(entry) = TreeRefIter::from_bytes(tree.data, tree.hash_len)
+    let Some(entry) = TreeRefIter::from_bytes(tree.data, tree.hash_kind)
         .filter_map(Result::ok)
         .find(|entry| component.eq(entry.filename))
     else {
@@ -55,8 +55,8 @@ where
 
 impl<'a> TreeRefIter<'a> {
     /// Instantiate an iterator from the given tree data.
-    pub fn from_bytes(data: &'a [u8], hash_len: usize) -> TreeRefIter<'a> {
-        TreeRefIter { data, hash_len }
+    pub fn from_bytes(data: &'a [u8], hash_kind: gix_hash::Kind) -> TreeRefIter<'a> {
+        TreeRefIter { data, hash_kind }
     }
 
     /// Follow a sequence of `path` components starting from this instance, and look them up in `odb` one by one using `buffer`
@@ -81,7 +81,7 @@ impl<'a> TreeRefIter<'a> {
         buffer.extend_from_slice(self.data);
 
         let mut iter = path.into_iter().peekable();
-        let mut data = crate::Data::new(crate::Kind::Tree, self.hash_len, buffer);
+        let mut data = crate::Data::new(crate::Kind::Tree, self.hash_kind, buffer);
 
         loop {
             data = match next_entry(&mut iter, data) {
@@ -123,8 +123,10 @@ impl<'a> TreeRefIter<'a> {
 
 impl<'a> TreeRef<'a> {
     /// Deserialize a Tree from `data`.
-    pub fn from_bytes(data: &'a [u8], hash_len: usize) -> Result<TreeRef<'a>, crate::decode::Error> {
-        let state = decode::State { hash_len };
+    pub fn from_bytes(data: &'a [u8], hash_kind: gix_hash::Kind) -> Result<TreeRef<'a>, crate::decode::Error> {
+        let state = decode::State {
+            hash_len: hash_kind.len_in_bytes(),
+        };
         let mut input = decode::Stream { input: data, state };
         match decode::tree.parse_next(&mut input) {
             Ok(tag) => Ok(tag),
@@ -191,7 +193,7 @@ impl<'a> Iterator for TreeRefIter<'a> {
         if self.data.is_empty() {
             return None;
         }
-        match decode::fast_entry(self.data, self.hash_len) {
+        match decode::fast_entry(self.data, self.hash_kind.len_in_bytes()) {
             Some((data_left, entry)) => {
                 self.data = data_left;
                 Some(Ok(entry))
