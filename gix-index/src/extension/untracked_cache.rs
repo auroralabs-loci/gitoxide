@@ -90,7 +90,9 @@ pub fn decode(data: &[u8], object_hash: gix_hash::Kind) -> Option<UntrackedCache
     let (identifier_len, data) = var_int(data)?;
     let (identifier, data) = data.split_at_checked(identifier_len.try_into().ok()?)?;
 
-    // The on-disk layout matches git's `ondisk_untracked_cache` struct:
+    // The on-disk layout matches git's `ondisk_untracked_cache` struct
+    // https://github.com/git/git/blob/2855562ca6a9c6b0e7bc780b050c1e83c9fcfbd0/dir.c#L3582-L3586
+    // https://github.com/git/git/blob/2855562ca6a9c6b0e7bc780b050c1e83c9fcfbd0/dir.c#L3668-L3722
     //   info_exclude_stat  (36 bytes)
     //   excludes_file_stat (36 bytes)
     //   dir_flags          ( 4 bytes)
