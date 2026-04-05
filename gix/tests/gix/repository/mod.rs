@@ -201,6 +201,20 @@ mod dirwalk {
         git(&root, ["config", "user.name", "a"])?;
         git(&root, ["config", "user.email", "a@example.com"])?;
         git(&root, ["config", "core.untrackedCache", "true"])?;
+        // Pin a local excludesFile so git and gix (isolated mode, reads local config) agree on
+        // which global-excludes file was used when the UNTR cache was written. Without this,
+        // users with a core.excludesFile in their ~/.gitconfig would have it written into the
+        // cache, but gix (isolated) wouldn't know about it, causing cache validation to fail.
+        let excludes = root.join("global-excludes");
+        std::fs::write(&excludes, "")?;
+        git(
+            &root,
+            [
+                std::ffi::OsStr::new("config"),
+                std::ffi::OsStr::new("core.excludesFile"),
+                excludes.as_os_str(),
+            ],
+        )?;
         std::fs::create_dir(root.join("tracked"))?;
         std::fs::write(root.join("tracked/keep"), "keep")?;
         git(&root, ["add", "tracked/keep"])?;
