@@ -3247,6 +3247,62 @@ fn matching_mode_with_tracked_intermediate_dirs_matches_uncached() -> crate::Res
     Ok(())
 }
 
+#[test]
+#[cfg_attr(windows, ignore)] // NTFS async metadata flush causes flaky mtime mismatches
+fn emit_tracked_true_bypasses_untracked_cache() -> crate::Result {
+    let root = repo_with_untracked_cache()?;
+    let opts = gix_dir::walk::Options {
+        emit_untracked: CollapseDirectory,
+        emit_tracked: true,
+        ..options()
+    };
+    let ((out, _root), entries) = collect_with_repo_globals(&root, opts, true)?;
+
+    assert_ne!(
+        out.read_dir_calls, 0,
+        "emit_tracked=true must disable the UNTR fast path since the cache only records untracked entries"
+    );
+    assert!(
+        entries
+            .iter()
+            .any(|(entry, _)| entry.rela_path.as_bstr() == "tracked/keep"),
+        "tracked file must appear in output when emit_tracked=true"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(windows, ignore)] // NTFS async metadata flush causes flaky mtime mismatches
+fn cached_subdir_becoming_repository_is_emitted() -> crate::Result {
+    let root = repo_with_untracked_cache()?;
+    // Turn `new/` (a regular untracked dir in the cache) into a nested repo.
+    // This changes `new/`'s mtime but not root's, so root's cache entry stays valid.
+    git(&root, ["init", "new"])?;
+    let opts = gix_dir::walk::Options {
+        emit_untracked: CollapseDirectory,
+        ..options()
+    };
+    let ((out, _root), entries) = collect_with_repo_globals(&root, opts, true)?;
+
+    assert!(
+        entries.iter().any(|(entry, _)| {
+            entry.rela_path.as_bstr() == "new" && entry.disk_kind == Some(gix_dir::entry::Kind::Repository)
+        }),
+        "a cached subdir that became a repository must still appear in output, but entries were: {:?}",
+        entries
+            .iter()
+            .map(|(e, _)| e.rela_path.as_bstr().to_owned())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        untracked_paths(&entries),
+        git_untracked_paths(&root, GitUntrackedMode::Collapsed, &[])?,
+        "output must match git status after subdir becomes a repository"
+    );
+    let _ = out;
+    Ok(())
+}
+
 fn repo_with_untracked_cache() -> crate::Result<std::path::PathBuf> {
     let tmp = gix_testtools::tempfile::tempdir()?;
     let base = tmp.path().to_path_buf();

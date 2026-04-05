@@ -127,6 +127,7 @@ pub(crate) fn validate<'a>(
 fn cache_is_applicable(worktree_root: &Path, opts: Options<'_>, ctx: &Context<'_>) -> Option<bool> {
     if opts.emit_ignored.is_some()
         || opts.for_deletion.is_some()
+        || opts.emit_tracked
         || opts.recurse_repositories
         || opts.classify_untracked_bare_repositories
         || opts.symlinks_to_directories_are_ignored_like_directories

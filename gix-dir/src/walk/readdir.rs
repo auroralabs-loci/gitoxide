@@ -229,8 +229,8 @@ fn recursive_from_untracked_cache(
             opts,
             ctx,
         )?;
+        num_entries += 1;
         if can_recurse(current_bstr.as_bstr(), info, opts.for_deletion, false, delegate) {
-            num_entries += 1;
             let subdir_may_collapse = state.may_collapse(current);
             let (action, subdir_prevent_collapse) = recursive(
                 subdir_may_collapse,
@@ -248,6 +248,13 @@ fn recursive_from_untracked_cache(
             prevent_collapse |= subdir_prevent_collapse;
             if action.is_break() {
                 return Ok((action, prevent_collapse));
+            }
+        } else {
+            if !state.held_for_directory_collapse(current_bstr.as_bstr(), info, &opts) {
+                let action = emit_entry(Cow::Borrowed(current_bstr.as_bstr()), info, None, opts, out, delegate);
+                if action.is_break() {
+                    return Ok((action, prevent_collapse));
+                }
             }
         }
         current_bstr.truncate(prev_len);
