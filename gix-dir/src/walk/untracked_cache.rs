@@ -111,6 +111,12 @@ pub(crate) fn validate<'a>(
         (None, None) => {}
         _ => return None,
     }
+    // Also validate the cached .git/info/exclude stat+OID. If info/exclude changed since
+    // the UNTR snapshot was written, cached ignore decisions for directories could be stale.
+    match cache.info_exclude() {
+        Some(expected) if !validate_cached_stat(expected, &info_exclude_path) => return None,
+        _ => {}
+    }
 
     Some(Validated {
         cache,

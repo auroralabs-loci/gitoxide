@@ -3058,6 +3058,44 @@ fn global_excludes_change_disables_untracked_cache() -> crate::Result {
 
 #[test]
 #[cfg_attr(windows, ignore)] // NTFS async metadata flush causes flaky mtime mismatches
+fn info_exclude_change_disables_untracked_cache() -> crate::Result {
+    let root = repo_with_untracked_cache()?;
+    let info_dir = root.join(".git/info");
+    std::fs::create_dir_all(&info_dir)?;
+    let info_exclude = info_dir.join("exclude");
+    std::fs::write(&info_exclude, "info-excluded/\n")?;
+    std::fs::create_dir_all(root.join("info-excluded"))?;
+    std::fs::write(root.join("info-excluded/file"), "excluded")?;
+    refresh_untracked_cache(&root)?;
+
+    // Now change info/exclude so the cache's recorded stat+OID no longer matches.
+    std::fs::write(&info_exclude, "")?;
+    let opts = gix_dir::walk::Options {
+        emit_untracked: CollapseDirectory,
+        ..options()
+    };
+    let ((out, _root), entries) = collect_with_repo_globals(&root, opts, true)?;
+
+    assert_ne!(
+        out.read_dir_calls, 0,
+        "changing .git/info/exclude contents must disable the UNTR fast path"
+    );
+    assert!(
+        entries
+            .iter()
+            .any(|(entry, _)| entry.rela_path.as_bstr() == "info-excluded"),
+        "the filesystem fallback should see entries that were formerly hidden by info/exclude"
+    );
+    assert_eq!(
+        untracked_paths(&entries),
+        git_untracked_paths(&root, GitUntrackedMode::Collapsed, &[])?,
+        "info/exclude changes should still produce git-compatible output"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(windows, ignore)] // NTFS async metadata flush causes flaky mtime mismatches
 fn global_excludes_file_present_and_unchanged_allows_untracked_cache() -> crate::Result {
     let root = repo_with_untracked_cache()?;
     let excludes_file = root.join("global-excludes");
