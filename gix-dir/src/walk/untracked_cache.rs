@@ -106,15 +106,22 @@ pub(crate) fn validate<'a>(
         .iter()
         .filter_map(|list| list.source.as_deref())
         .find(|path| gix_path::realpath(*path).ok().as_deref() != Some(info_exclude_path.as_path()));
+    let object_hash = index.object_hash();
     match (cache.excludes_file(), excludes_file) {
         (Some(expected), Some(path)) if validate_cached_stat(expected, path) => {}
         (None, None) => {}
         _ => return None,
     }
-    // Also validate the cached .git/info/exclude stat+OID. If info/exclude changed since
+    // Also validate the cached .git/info/exclude stat and OID. If info/exclude changed since
     // the UNTR snapshot was written, cached ignore decisions for directories could be stale.
+    // We verify the content hash in addition to the stat to catch same-second, same-size edits.
     match cache.info_exclude() {
-        Some(expected) if !validate_cached_stat(expected, &info_exclude_path) => return None,
+        Some(expected)
+            if !validate_cached_stat(expected, &info_exclude_path)
+                || !gitignore_matches(expected.id(), &info_exclude_path, object_hash) =>
+        {
+            return None
+        }
         _ => {}
     }
 
