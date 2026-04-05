@@ -135,6 +135,23 @@ mod dirwalk {
     }
 
     #[test]
+    fn untracked_cache_keep_config_does_not_error() -> crate::Result {
+        let mut repo = repo_with_untracked_cache()?;
+        // `core.untrackedCache=keep` is git's documented default and a valid tri-state
+        // value. Parsing it as a boolean returned an error, making `dirwalk_options()`
+        // fail on any repo with this setting.
+        repo.config_snapshot_mut()
+            .set_raw_value_by("core", None, "untrackedCache", "keep")?;
+        let opts = repo.dirwalk_options();
+        assert!(
+            opts.is_ok(),
+            "core.untrackedCache=keep must not cause a parse error, got: {:?}",
+            opts.err()
+        );
+        Ok(())
+    }
+
+    #[test]
     // On Windows, NTFS flushes directory metadata asynchronously. Directories modified
     // very recently can report slightly different `LastWriteTime` values depending on
     // when the stat is read, causing the IOUC stat check to fail unpredictably.

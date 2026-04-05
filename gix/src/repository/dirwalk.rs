@@ -12,15 +12,17 @@ impl Repository {
     /// Return default options suitable for performing a directory walk on this repository.
     ///
     /// Used in conjunction with [`dirwalk()`](Self::dirwalk())
-    pub fn dirwalk_options(&self) -> Result<dirwalk::Options, config::boolean::Error> {
-        let use_untracked_cache = config::tree::Core::UNTRACKED_CACHE.enrich_error(
-            self.config
-                .resolved
-                .boolean(config::tree::Core::UNTRACKED_CACHE)
-                .unwrap_or(Ok(false)),
-        )?;
+    pub fn dirwalk_options(&self) -> Result<dirwalk::Options, config::untracked_cache::Error> {
+        let use_untracked_cache = config::tree::Core::UNTRACKED_CACHE
+            .try_into_untracked_cache(self.config.resolved.boolean(config::tree::Core::UNTRACKED_CACHE))?;
+        let fs_caps = self.filesystem_options().map_err(|e| config::key::Error {
+            key: e.key,
+            value: e.value,
+            environment_override: e.environment_override,
+            source: e.source,
+        })?;
         Ok(
-            dirwalk::Options::from_fs_caps(self.filesystem_options()?).untracked_cache(if use_untracked_cache {
+            dirwalk::Options::from_fs_caps(fs_caps).untracked_cache(if use_untracked_cache.unwrap_or(false) {
                 dirwalk::UntrackedCache::Use
             } else {
                 dirwalk::UntrackedCache::Ignore
