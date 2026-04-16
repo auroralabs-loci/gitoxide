@@ -108,7 +108,7 @@ fn create_dir(p: &Path) -> Result<(), Error> {
 }
 
 /// Options for use in [`into()`];
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub struct Options {
     /// If true, and the kind of repository to create has a worktree, then the destination directory must be empty.
     ///
@@ -117,6 +117,15 @@ pub struct Options {
     /// If set, use these filesystem capabilities to populate the respective git-config fields.
     /// If `None`, the directory will be probed.
     pub fs_capabilities: Option<gix_fs::Capabilities>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options {
+            destination_must_be_empty: true,
+            fs_capabilities: None,
+        }
+    }
 }
 
 /// Create a new `.git` repository of `kind` within the possibly non-existing `directory`

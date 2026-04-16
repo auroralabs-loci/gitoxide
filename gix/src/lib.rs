@@ -293,7 +293,15 @@ pub fn open_with_environment_overrides(directory: impl Into<std::path::PathBuf>)
 /// ```
 #[allow(clippy::result_large_err)]
 pub fn init(directory: impl AsRef<std::path::Path>) -> Result<Repository, init::Error> {
-    ThreadSafeRepository::init(directory, create::Kind::WithWorktree, create::Options::default()).map(Into::into)
+    ThreadSafeRepository::init(
+        directory,
+        create::Kind::WithWorktree,
+        create::Options {
+            destination_must_be_empty: false,
+            ..Default::default()
+        },
+    )
+    .map(Into::into)
 }
 
 /// See [`ThreadSafeRepository::init()`], but returns a [`Repository`] instead.
