@@ -16,6 +16,18 @@ pub struct OidStat {
     pub id: ObjectId,
 }
 
+impl OidStat {
+    /// Return filesystem stat information for the tracked file.
+    pub fn stat(&self) -> &entry::Stat {
+        &self.stat
+    }
+
+    /// Return the object id associated with the tracked file contents.
+    pub fn id(&self) -> &ObjectId {
+        &self.id
+    }
+}
+
 /// A directory with information about its untracked files, and its sub-directories
 #[derive(Clone)]
 pub struct Directory {
@@ -34,6 +46,38 @@ pub struct Directory {
     pub check_only: bool,
 }
 
+impl Directory {
+    /// Return the directory name, or an empty string for the root directory.
+    pub fn name(&self) -> &bstr::BStr {
+        self.name.as_ref()
+    }
+
+    /// Return all cached untracked entries contained directly in this directory.
+    pub fn untracked_entries(&self) -> &[BString] {
+        &self.untracked_entries
+    }
+
+    /// Return indices pointing at cached child directories.
+    pub fn sub_directories(&self) -> &[usize] {
+        &self.sub_directories
+    }
+
+    /// Return the cached stat information for this directory, if available.
+    pub fn stat(&self) -> Option<&entry::Stat> {
+        self.stat.as_ref()
+    }
+
+    /// Return the cached object id of this directory's ignore file, if available.
+    pub fn exclude_file_oid(&self) -> Option<&ObjectId> {
+        self.exclude_file_oid.as_ref()
+    }
+
+    /// Return whether this directory was cached in `check_only` mode.
+    pub fn check_only(&self) -> bool {
+        self.check_only
+    }
+}
+
 /// Only used as an indicator
 pub const SIGNATURE: Signature = *b"UNTR";
 
@@ -46,10 +90,29 @@ pub fn decode(data: &[u8], object_hash: gix_hash::Kind) -> Option<UntrackedCache
     let (identifier_len, data) = var_int(data)?;
     let (identifier, data) = data.split_at_checked(identifier_len.try_into().ok()?)?;
 
+    // The on-disk layout matches git's `ondisk_untracked_cache` struct
+    // https://github.com/git/git/blob/2855562ca6a9c6b0e7bc780b050c1e83c9fcfbd0/dir.c#L3582-L3586
+    // https://github.com/git/git/blob/2855562ca6a9c6b0e7bc780b050c1e83c9fcfbd0/dir.c#L3668-L3722
+    //   info_exclude_stat  (36 bytes)
+    //   excludes_file_stat (36 bytes)
+    //   dir_flags          ( 4 bytes)
+    //   info_exclude hash  (hash_len bytes)
+    //   excludes_file hash (hash_len bytes)
+    //   exclude_per_dir    (NUL-terminated)
     let hash_len = object_hash.len_in_bytes();
-    let (info_exclude, data) = decode_oid_stat(data, hash_len)?;
-    let (excludes_file, data) = decode_oid_stat(data, hash_len)?;
+    let (info_exclude_stat, data) = crate::decode::stat(data)?;
+    let (excludes_file_stat, data) = crate::decode::stat(data)?;
     let (dir_flags, data) = read_u32(data)?;
+    let (info_exclude_hash, data) = data.split_at_checked(hash_len)?;
+    let (excludes_file_hash, data) = data.split_at_checked(hash_len)?;
+    let info_exclude = OidStat {
+        stat: info_exclude_stat,
+        id: ObjectId::from_bytes_or_panic(info_exclude_hash),
+    };
+    let excludes_file = OidStat {
+        stat: excludes_file_stat,
+        id: ObjectId::from_bytes_or_panic(excludes_file_hash),
+    };
     let (exclude_filename_per_dir, data) = split_at_byte_exclusive(data, 0)?;
 
     let (num_directory_blocks, data) = var_int(data)?;
@@ -139,16 +202,4 @@ fn decode_directory_block<'a>(data: &'a [u8], directories: &mut Vec<Directory>) 
     }
 
     data.into()
-}
-
-fn decode_oid_stat(data: &[u8], hash_len: usize) -> Option<(OidStat, &[u8])> {
-    let (stat, data) = crate::decode::stat(data)?;
-    let (hash, data) = data.split_at_checked(hash_len)?;
-    Some((
-        OidStat {
-            stat,
-            id: ObjectId::from_bytes_or_panic(hash),
-        },
-        data,
-    ))
 }
