@@ -50,9 +50,8 @@ check:
     ! cargo check --features lean-async 2>/dev/null
     ! cargo check -p gitoxide-core --all-features --features gix/sha1 2>/dev/null
     ! cargo check -p gix-protocol --all-features 2>/dev/null
-    # warning happens if nothing found, no exit code :/
-    cargo --color=never tree -p gix --no-default-features -e normal -i imara-diff \
-        2>&1 >/dev/null | grep '^warning: nothing to print\>'
+    tree="$(cargo --color=never tree -p gix --no-default-features -e normal --prefix none --format '{p}')"; \
+        ! printf '%s\n' "$tree" | rg -q '^gix-imara-diff(-01)? v'
     cargo --color=never tree -p gix --no-default-features -e normal -i gix-submodule \
         2>&1 >/dev/null | grep '^warning: nothing to print\>'
     cargo --color=never tree -p gix --no-default-features -e normal -i gix-pathspec \
@@ -207,13 +206,17 @@ unit-tests:
     cargo nextest run -p gix-worktree-tests --features gix-features-parallel --no-fail-fast
     cargo nextest run -p gix-error --no-fail-fast --test auto-chain-error --features auto-chain-error
     cargo nextest run -p gix-error --no-fail-fast
+    env GIX_TEST_FIXTURE_HASH=sha1 cargo nextest run -p gix-filter --no-fail-fast
+    env GIX_TEST_FIXTURE_HASH=sha256 cargo nextest run -p gix-filter --no-fail-fast
     cargo nextest run -p gix-hash --features sha1 --no-fail-fast
     cargo nextest run -p gix-hash --features sha1,sha256 --no-fail-fast
     cargo nextest run -p gix-hash --features sha256 --no-fail-fast
     env GIX_TEST_FIXTURE_HASH=sha1 cargo nextest run -p gix-commitgraph --no-fail-fast
     env GIX_TEST_FIXTURE_HASH=sha256 cargo nextest run -p gix-commitgraph --no-fail-fast
-    cargo nextest run -p gix-object --no-fail-fast
-    cargo nextest run -p gix-object --features verbose-object-parsing-errors --no-fail-fast
+    env GIX_TEST_FIXTURE_HASH=sha1 cargo nextest run -p gix-object --no-fail-fast
+    env GIX_TEST_FIXTURE_HASH=sha256 cargo nextest run -p gix-object --no-fail-fast
+    env GIX_TEST_FIXTURE_HASH=sha1 cargo nextest run -p gix-object --features verbose-object-parsing-errors --no-fail-fast
+    env GIX_TEST_FIXTURE_HASH=sha256 cargo nextest run -p gix-object --features verbose-object-parsing-errors --no-fail-fast
     cargo nextest run -p gix-tempfile --features signals --no-fail-fast
     cargo nextest run -p gix-features --all-features --no-fail-fast
     cargo nextest run -p gix-ref-tests --all-features --no-fail-fast
@@ -221,6 +224,7 @@ unit-tests:
     cargo nextest run -p gix-odb-tests --features gix-features-parallel --no-fail-fast
     env GIX_TEST_FIXTURE_HASH=sha1 cargo nextest run -p gix-pack --all-features --no-fail-fast
     env GIX_TEST_FIXTURE_HASH=sha256 cargo nextest run -p gix-pack --all-features --no-fail-fast
+    env GIX_TEST_FIXTURE_HASH=sha256 cargo nextest run -p gix-diff-tests --no-fail-fast
     cargo nextest run -p gix-pack-tests --features all-features --no-fail-fast
     cargo nextest run -p gix-pack-tests --features gix-features-parallel --no-fail-fast
     cargo nextest run -p gix-index-tests --features gix-features-parallel --no-fail-fast

@@ -32,6 +32,7 @@ mod lookup_ref_delta_objects {
     fn entry(header: Header, data: &'static [u8]) -> input::Entry {
         let obj = gix_object::Data {
             kind: header.as_kind().unwrap_or(gix_object::Kind::Blob),
+            hash_kind: gix_testtools::hash_kind_from_env().unwrap_or_default(),
             data,
         };
         let mut entry = input::Entry::from_data_obj(&obj, 0).expect("valid object");
@@ -78,13 +79,14 @@ mod lookup_ref_delta_objects {
     }
 
     impl gix_object::Find for FindData<'_> {
-        fn try_find<'a>(&self, _id: &oid, buf: &'a mut Vec<u8>) -> Result<Option<Data<'a>>, Error> {
+        fn try_find<'a>(&self, id: &oid, buf: &'a mut Vec<u8>) -> Result<Option<Data<'a>>, Error> {
             self.calls.fetch_add(1, Ordering::Relaxed);
             if let Some(data) = self.data {
                 buf.resize(data.len(), 0);
                 buf.copy_from_slice(data);
                 Ok(Some(gix_object::Data {
                     kind: gix_object::Kind::Blob,
+                    hash_kind: id.kind(),
                     data: buf.as_slice(),
                 }))
             } else {
@@ -205,7 +207,7 @@ mod lookup_ref_delta_objects {
             Ok(entry(base(), D_B)),
         ];
         let actual = LookupRefDeltaObjectsIter::new(input.into_iter(), gix_object::find::Never).collect::<Vec<_>>();
-        for (actual, expected) in actual.into_iter().zip(expected.into_iter()) {
+        for (actual, expected) in actual.into_iter().zip(expected) {
             assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
         }
     }

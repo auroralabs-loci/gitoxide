@@ -27,6 +27,7 @@ fn binary() {
 }
 
 mod text {
+    use arbitrary::Arbitrary;
     use bstr::ByteSlice;
     use gix_merge::blob::{
         builtin_driver,
@@ -34,6 +35,7 @@ mod text {
         Resolution,
     };
     use pretty_assertions::assert_str_eq;
+    use std::num::NonZero;
 
     const DIVERGING: &[&str] = &[
         // Somehow, on in zdiff mode, it's different, and I wasn't able to figure out the rule properly.
@@ -135,9 +137,79 @@ mod text {
             ),
         ] {
             let mut out = Vec::new();
-            let mut input = imara_diff::intern::InternedInput::default();
+            let mut input = imara_diff::InternedInput::default();
             gix_merge::blob::builtin_driver::text(&mut out, &mut input, Default::default(), ours, base, theirs, opts);
         }
+    }
+
+    /// This test reproduces what the fuzzer does, allowing it to accept `Arbitrary` input produced by the fuzzer.
+    #[test]
+    fn clusterfuzz_timeout_regression() {
+        #[derive(Debug, Arbitrary)]
+        struct FuzzCtx<'a> {
+            base: &'a [u8],
+            ours: &'a [u8],
+            theirs: &'a [u8],
+            marker_size: NonZero<u8>,
+        }
+        fn run_fuzz_case(ours: &[u8], base: &[u8], theirs: &[u8], marker_size: NonZero<u8>) {
+            let mut out = Vec::new();
+            let mut input = imara_diff::InternedInput::default();
+            for diff_algorithm in [
+                imara_diff::Algorithm::Histogram,
+                imara_diff::Algorithm::Myers,
+                imara_diff::Algorithm::MyersMinimal,
+            ] {
+                let mut options = builtin_driver::text::Options {
+                    diff_algorithm,
+                    conflict: Default::default(),
+                };
+                for (left, right) in [(ours, theirs), (theirs, ours)] {
+                    let resolution = gix_merge::blob::builtin_driver::text(
+                        &mut out,
+                        &mut input,
+                        Default::default(),
+                        left,
+                        base,
+                        right,
+                        options,
+                    );
+                    if resolution == Resolution::Conflict {
+                        for conflict in [
+                            Conflict::ResolveWithOurs,
+                            Conflict::ResolveWithTheirs,
+                            Conflict::ResolveWithUnion,
+                            Conflict::Keep {
+                                style: ConflictStyle::Diff3,
+                                marker_size,
+                            },
+                            Conflict::Keep {
+                                style: ConflictStyle::ZealousDiff3,
+                                marker_size,
+                            },
+                        ] {
+                            options.conflict = conflict;
+                            gix_merge::blob::builtin_driver::text(
+                                &mut out,
+                                &mut input,
+                                Default::default(),
+                                left,
+                                base,
+                                right,
+                                options,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        let ctx = FuzzCtx::arbitrary(&mut arbitrary::Unstructured::new(include_bytes!(
+            "../../fixtures/clusterfuzz-testcase-minimized-gix-merge-blob-6377298803884032"
+        )))
+        .expect("testcase matches the historical fuzz target input layout");
+
+        run_fuzz_case(ctx.ours, ctx.base, ctx.theirs, ctx.marker_size);
     }
 
     #[test]
@@ -153,7 +225,7 @@ mod text {
             let mut num_cases = 0;
             for case in baseline::Expectations::new(&root, &cases) {
                 num_cases += 1;
-                let mut input = imara_diff::intern::InternedInput::default();
+                let mut input = imara_diff::InternedInput::default();
                 let actual = gix_merge::blob::builtin_driver::text(
                     &mut out,
                     &mut input,
@@ -226,7 +298,7 @@ mod text {
                 conflict,
                 ..Default::default()
             };
-            let mut input = imara_diff::intern::InternedInput::default();
+            let mut input = imara_diff::InternedInput::default();
             let mut out = Vec::new();
             let actual = builtin_driver::text(
                 &mut out,
@@ -282,7 +354,7 @@ mod text {
                 conflict,
                 ..Default::default()
             };
-            let mut input = imara_diff::intern::InternedInput::default();
+            let mut input = imara_diff::InternedInput::default();
             let mut out = Vec::new();
             let actual = builtin_driver::text(
                 &mut out,
@@ -294,6 +366,73 @@ mod text {
                 options,
             );
             assert_eq!(actual, expected, "{conflict:?}");
+        }
+    }
+
+    mod false_conflict {
+        use gix_merge::blob::{builtin_driver, builtin_driver::text::Conflict, Resolution};
+        use imara_diff::InternedInput;
+
+        /// Minimal reproduction: Myers produces a false conflict where git merge-file resolves cleanly.
+        ///
+        /// base:   alpha_x / (blank) / bravo_x / charlie_x / (blank)
+        /// ours:   (blank) / (blank) / bravo_x / charlie_x
+        /// theirs: alpha_x / (blank) / charlie_x / (blank)
+        ///
+        /// base→ours:  alpha_x deleted (replaced by blank), trailing blank removed
+        /// base→theirs: bravo_x deleted
+        ///
+        /// These are non-overlapping changes that git merges cleanly.
+        /// See https://github.com/GitoxideLabs/gitoxide/issues/2475
+        #[test]
+        fn myers_false_conflict_with_blank_line_ambiguity() {
+            let base = b"alpha_x\n\nbravo_x\ncharlie_x\n\n";
+            let ours = b"\n\nbravo_x\ncharlie_x\n";
+            let theirs = b"alpha_x\n\ncharlie_x\n\n";
+
+            let labels = builtin_driver::text::Labels {
+                ancestor: Some("base".into()),
+                current: Some("ours".into()),
+                other: Some("theirs".into()),
+            };
+
+            // Histogram resolves cleanly.
+            {
+                let options = builtin_driver::text::Options {
+                    diff_algorithm: imara_diff::Algorithm::Histogram,
+                    conflict: Conflict::Keep {
+                        style: builtin_driver::text::ConflictStyle::Merge,
+                        marker_size: 7.try_into().unwrap(),
+                    },
+                };
+                let mut out = Vec::new();
+                let mut input = InternedInput::default();
+                let res = builtin_driver::text(&mut out, &mut input, labels, ours, base, theirs, options);
+                assert_eq!(res, Resolution::Complete, "Histogram should resolve cleanly");
+            }
+
+            // Myers should also resolve cleanly (it used to produce a false conflict because
+            // imara-diff's Myers splits the ours change into two hunks — a deletion at base[0]
+            // and an empty insertion at base[2] — and the insertion collided with theirs'
+            // deletion at base[2]).
+            {
+                let options = builtin_driver::text::Options {
+                    diff_algorithm: imara_diff::Algorithm::Myers,
+                    conflict: Conflict::Keep {
+                        style: builtin_driver::text::ConflictStyle::Merge,
+                        marker_size: 7.try_into().unwrap(),
+                    },
+                };
+                let mut out = Vec::new();
+                let mut input = InternedInput::default();
+                let res = builtin_driver::text(&mut out, &mut input, labels, ours, base, theirs, options);
+                assert_eq!(
+                    res,
+                    Resolution::Complete,
+                    "Myers should resolve cleanly (git merge-file does). Output:\n{}",
+                    String::from_utf8_lossy(&out)
+                );
+            }
         }
     }
 
