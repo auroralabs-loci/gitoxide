@@ -1388,7 +1388,15 @@ mod util {
         gix_pathspec::Search,
     )> {
         let root = repo_workdir()?;
-        let odb = crate::open_odb(root.join(".git/objects"))?;
+        let object_hash = gix_testtools::hash_kind_from_env().unwrap_or_default();
+        let odb = gix_odb::at_opts(
+            root.join(".git/objects"),
+            Vec::new(),
+            gix_odb::store::init::Options {
+                object_hash,
+                ..Default::default()
+            },
+        )?;
         let lhs = read_index(&odb, &root, lhs.into())?;
         let rhs = read_index(&odb, &root, rhs.into())?;
 
