@@ -22,7 +22,7 @@ use crate::{
     is_dir_to_mode, AtomicU64, SymlinkCheck,
 };
 #[cfg(windows)]
-use crate::metadata_cache::{self, CachedMetadata, MetadataCache};
+use crate::metadata_cache::{CachedMetadata, MetadataCache};
 
 /// Windows-only union of live `lstat` metadata and pre-cached metadata, so
 /// `compute_status` sees one shape. Other platforms use `gix_index::fs::Metadata`
@@ -448,7 +448,7 @@ impl<'index> State<'_, 'index> {
         // only fall back to a syscall on miss; on other platforms per-file
         // `lstat` is already fast, so we just do the syscall directly.
         #[cfg(windows)]
-        let metadata = if let Some(cached) = self.metadata_cache.and_then(|c| metadata_cache::lookup(c, rela_path)) {
+        let metadata = if let Some(cached) = self.metadata_cache.and_then(|c| c.get(rela_path)) {
             FileMetadata::Cached(cached)
         } else {
             self.symlink_metadata_calls.fetch_add(1, Ordering::Relaxed);
