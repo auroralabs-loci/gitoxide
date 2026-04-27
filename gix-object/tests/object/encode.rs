@@ -14,7 +14,7 @@ macro_rules! round_trip_with_hash_kind {
         fn round_trip() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             use std::convert::TryFrom;
             use std::io::Write;
-            use crate::fixture_bytes;
+            use crate::object_fixture;
             use gix_object::{ObjectRef, Object, WriteTo};
             use bstr::ByteSlice;
             let hash_kind = crate::fixture_hash_kind();
@@ -22,11 +22,7 @@ macro_rules! round_trip_with_hash_kind {
             for input_name in &[
                 $( $files ),*
             ] {
-                let input = if let Some(path) = input_name.strip_prefix("tree/") {
-                    crate::tree_fixture(path)?
-                } else {
-                    fixture_bytes(input_name)
-                };
+                let input = object_fixture(input_name)?;
                 // Test the parse->borrowed->owned->write chain for an object kind
                 let mut output = Vec::new();
                 let item = <$borrowed>::from_bytes(&input, hash_kind)?;
