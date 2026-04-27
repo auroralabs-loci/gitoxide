@@ -36,12 +36,6 @@ serde = [
     "gix-hash/serde",
     "gix-actor/serde",
 ]
-## When parsing objects by default errors will only be available on the granularity of success or failure, and with the above flag enabled
-## details information about the error location will be collected.
-## Use it in applications which expect broken or invalid objects or for debugging purposes. Incorrectly formatted objects aren't at all
-## common otherwise.
-verbose-object-parsing-errors = ["winnow/std"]
-
 [dependencies]
 gix-features = { version = "^0.47.0", path = "../gix-features", features = [
     "progress",
@@ -59,7 +53,6 @@ bstr = { version = "1.12.0", default-features = false, features = [
     "std",
     "unicode",
 ] }
-winnow = { version = "1.0.0", features = ["simd"] }
 smallvec = { version = "1.15.1", features = ["write"] }
 serde = { version = "1.0.114", optional = true, default-features = false, features = [
     "derive",
