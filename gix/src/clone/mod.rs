@@ -102,7 +102,10 @@ impl PrepareFetch {
         mut create_opts: crate::create::Options,
         open_opts: crate::open::Options,
     ) -> Result<Self, Error> {
-        create_opts.destination_must_be_empty = true;
+        if create_opts.destination_must_be_empty.is_none() {
+            create_opts.destination_must_be_empty = Some(true);
+        }
+
         let mut repo = crate::ThreadSafeRepository::init_opts(path, kind, create_opts, open_opts)?.to_thread_local();
         url.canonicalize(repo.options.current_dir_or_empty())
             .map_err(|err| Error::CanonicalizeUrl {
