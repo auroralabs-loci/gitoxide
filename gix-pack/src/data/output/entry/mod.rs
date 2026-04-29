@@ -31,7 +31,7 @@ pub enum Kind {
     },
 }
 
-/// The error returned by [`output::Entry::from_data()`].
+/// The error returned by [`output::Entry::from_base()`].
 #[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -61,6 +61,7 @@ impl output::Entry {
     }
 
     /// Create an Entry from a previously counted object which is located in a pack. It's `entry` is provided here.
+    /// `potential_bases` should be sorted by `Count.entry_pack_location.pack_offset`.
     /// The `version` specifies what kind of target `Entry` version the caller desires.
     pub fn from_pack_entry(
         mut entry: find::Entry,
@@ -131,8 +132,8 @@ impl output::Entry {
         })
     }
 
-    /// Create a new instance from the given `oid` and its corresponding git object data `obj`.
-    pub fn from_data(count: &output::Count, obj: &gix_object::Data<'_>) -> Result<Self, Error> {
+    /// Create a new instance with type Base from the given `oid` and its corresponding git object data `obj`.
+    pub fn from_base(count: &output::Count, obj: &gix_object::Data<'_>) -> Result<Self, Error> {
         Ok(output::Entry {
             id: count.id.to_owned(),
             kind: Kind::Base(obj.kind),
@@ -140,6 +141,28 @@ impl output::Entry {
             compressed_data: {
                 let mut out = gix_features::zlib::stream::deflate::Write::new(Vec::new());
                 if let Err(err) = std::io::copy(&mut &*obj.data, &mut out) {
+                    match err.kind() {
+                        std::io::ErrorKind::Other => return Err(Error::ZlibDeflate(err)),
+                        err => unreachable!("Should never see other errors than zlib, but got {:?}", err),
+                    }
+                }
+                out.flush()?;
+                out.into_inner()
+            },
+        })
+    }
+
+    /// Like [`output::Entry::from_base()`], but with type OfsDelta.
+    /// `delta_data` is encoded instructions. Header with encoded size and will be encoded by `output::Entry::to_entry_header`
+    /// `object_index` is the absolute index to the object.
+    pub fn from_delta_ref(count: &output::Count, delta_data: &[u8], object_index: usize) -> Result<Self, Error> {
+        Ok(output::Entry {
+            id: count.id.to_owned(),
+            kind: Kind::DeltaRef { object_index },
+            decompressed_size: delta_data.len(),
+            compressed_data: {
+                let mut out = gix_features::zlib::stream::deflate::Write::new(Vec::new());
+                if let Err(err) = std::io::copy(&mut &*delta_data, &mut out) {
                     match err.kind() {
                         std::io::ErrorKind::Other => return Err(Error::ZlibDeflate(err)),
                         err => unreachable!("Should never see other errors than zlib, but got {:?}", err),

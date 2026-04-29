@@ -26,6 +26,7 @@ pub use hashbrown::{hash_map, hash_set, hash_table, Equivalent};
 /// thread-safe types
 pub mod sync {
     /// A map for associating data with object ids in a thread-safe fashion. It should scale well up to 256 threads.
+    #[derive(Debug)]
     pub struct ObjectIdMap<V> {
         /// Sharing is done by the first byte of the incoming object id.
         shards: [parking_lot::Mutex<super::HashMap<gix_hash::ObjectId, V>>; 256],
