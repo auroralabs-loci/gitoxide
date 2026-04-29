@@ -198,6 +198,7 @@ fn changed_and_untracked() {
             read_dir_calls: 3,
             returned_entries: 2,
             seen_entries: 8,
+            ..Default::default()
         }
     );
     assert_eq!(out.rewrites, None, "rewrites are still not configured");
@@ -245,6 +246,7 @@ fn unreadable_untracked() {
             read_dir_calls: 1,
             returned_entries: 1,
             seen_entries: 3,
+            ..Default::default()
         }
     );
 }
