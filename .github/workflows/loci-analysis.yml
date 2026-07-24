@@ -18,7 +18,10 @@ jobs:
       GH_TOKEN: ${{ secrets.MIRROR_REPOS_WRITE_PAT }}
       CC_aarch64_unknown_linux_gnu: "aarch64-linux-gnu-gcc"
       CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: "aarch64-linux-gnu-gcc"
-      RUSTFLAGS: "-C debuginfo=2"
+      # machine-outliner=never: suppress LLVM OUTLINED_FUNCTION_* symbols for clean
+      # per-function LOCI analysis. Relies on profile.release lto="thin" pulling std
+      # through LTO codegen; if LTO is dropped, std-side outlining returns.
+      RUSTFLAGS: "-C debuginfo=2 -C llvm-args=-enable-machine-outliner=never"
       OPENSSL_STATIC: "1"
 
     environment: ${{ vars.LOCI_ENV || 'PROD__AL_DEMO' }}
