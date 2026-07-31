@@ -496,7 +496,7 @@ fn overrides_with_implicit_booleans_work_in_single_section() {
 }
 
 #[test]
-fn implicit_booleans_may_be_followed_by_whitespace() {
+fn implicit_booleans_may_be_followed_by_whitespace() -> crate::Result {
     for config in [
         "[a]\n\tb \n",
         "[a]\n\tb\t\n",
@@ -506,7 +506,7 @@ fn implicit_booleans_may_be_followed_by_whitespace() {
         "[a]\n\tb \r\n",
         "[a]\n\tb\n",
     ] {
-        let file = File::try_from(config).unwrap();
+        let file = File::try_from(config)?;
         assert_eq!(
             file.boolean("a.b"),
             Ok(Some(true)),
@@ -520,7 +520,7 @@ fn implicit_booleans_may_be_followed_by_whitespace() {
     }
 
     for config in ["[a]\n\tb =\n", "[a]\n\tb = \n", "[a]\n\tb=\"\"\n", "[a]\n\tb ="] {
-        let file = File::try_from(config).unwrap();
+        let file = File::try_from(config)?;
         assert_eq!(
             file.boolean("a.b"),
             Ok(Some(false)),
@@ -532,6 +532,8 @@ fn implicit_booleans_may_be_followed_by_whitespace() {
             "an explicitly empty value is the empty string"
         );
     }
+
+    Ok(())
 }
 
 #[test]
