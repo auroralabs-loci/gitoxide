@@ -224,11 +224,17 @@ fn attribute_names_must_not_be_empty() {
         ),
         "a blank in front of the equals sign leaves the assignment without a name"
     );
-    assert!(lenient_lines(r"p text =lf").is_empty());
-    assert!(matches!(
-        try_line(r"p ="),
-        Err(parse::Error::AttributeName { line_number: 1, .. })
-    ));
+    assert!(
+        lenient_lines(r"p text =lf").is_empty(),
+        "lenient parsing skips the invalid line entirely"
+    );
+    assert!(
+        matches!(
+            try_line(r"p ="),
+            Err(parse::Error::AttributeName { line_number: 1, .. })
+        ),
+        "an assignment that is nothing but an equals sign has no name either"
+    );
     assert!(
         matches!(
             try_line(r"p -"),
@@ -236,11 +242,17 @@ fn attribute_names_must_not_be_empty() {
         ),
         "prefixes need a name to apply to"
     );
-    assert!(lenient_lines(r"p -").is_empty());
-    assert!(matches!(
-        try_line(r"p !"),
-        Err(parse::Error::AttributeName { line_number: 1, .. })
-    ));
+    assert!(
+        lenient_lines(r"p -").is_empty(),
+        "lenient parsing skips the invalid line entirely"
+    );
+    assert!(
+        matches!(
+            try_line(r"p !"),
+            Err(parse::Error::AttributeName { line_number: 1, .. })
+        ),
+        "the unspecified prefix needs one as well"
+    );
 }
 
 #[test]
@@ -295,15 +307,24 @@ fn only_ascii_blanks_separate_attributes() {
         ),
         "in a name it makes the whole name invalid"
     );
-    assert!(lenient_lines("p text\u{a0}eol=lf").is_empty());
-    assert!(matches!(
-        try_line("p a\u{b}b"),
-        Err(parse::Error::AttributeName { line_number: 1, .. })
-    ));
-    assert!(matches!(
-        try_line("p a\u{c}b"),
-        Err(parse::Error::AttributeName { line_number: 1, .. })
-    ));
+    assert!(
+        lenient_lines("p text\u{a0}eol=lf").is_empty(),
+        "lenient parsing skips the invalid line entirely"
+    );
+    assert!(
+        matches!(
+            try_line("p a\u{b}b"),
+            Err(parse::Error::AttributeName { line_number: 1, .. })
+        ),
+        "a vertical tab is part of the name, not a separator"
+    );
+    assert!(
+        matches!(
+            try_line("p a\u{c}b"),
+            Err(parse::Error::AttributeName { line_number: 1, .. })
+        ),
+        "a form feed is part of the name, not a separator"
+    );
     assert!(
         matches!(
             try_line("p a\u{2028}b"),
