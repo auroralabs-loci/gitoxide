@@ -63,9 +63,7 @@ fn normalize_inner(mut input: &BStr) -> Cow<'_, BStr> {
             b'\\' => match bytes.next() {
                 Some(b'n') => out.push(b'\n'),
                 Some(b't') => out.push(b'\t'),
-                Some(b'b') => {
-                    out.pop();
-                }
+                Some(b'b') => out.push(b'\x08'),
                 Some(c) => {
                     out.push(c);
                 }
