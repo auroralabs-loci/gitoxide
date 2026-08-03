@@ -66,13 +66,43 @@ pub mod transaction {
     use crate::store_impl::packed;
 
     /// The error returned by [`file::Transaction::prepare()`][crate::file::Transaction::prepare()].
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug)]
     #[expect(missing_docs)]
     pub enum Error {
-        #[error("An existing pack couldn't be opened or read when preparing a transaction")]
-        BufferOpen(#[from] packed::buffer::open::Error),
-        #[error("The lock for a packed transaction could not be obtained")]
-        TransactionLock(#[from] gix_lock::acquire::Error),
+        BufferOpen(packed::buffer::open::Error),
+        TransactionLock(gix_lock::acquire::Error),
+    }
+
+    impl std::fmt::Display for Error {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Error::BufferOpen(_) => {
+                    f.write_str("An existing pack couldn't be opened or read when preparing a transaction")
+                }
+                Error::TransactionLock(_) => f.write_str("The lock for a packed transaction could not be obtained"),
+            }
+        }
+    }
+
+    impl std::error::Error for Error {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match self {
+                Error::BufferOpen(err) => Some(err),
+                Error::TransactionLock(err) => Some(err),
+            }
+        }
+    }
+
+    impl From<packed::buffer::open::Error> for Error {
+        fn from(err: packed::buffer::open::Error) -> Self {
+            Error::BufferOpen(err)
+        }
+    }
+
+    impl From<gix_lock::acquire::Error> for Error {
+        fn from(err: gix_lock::acquire::Error) -> Self {
+            Error::TransactionLock(err)
+        }
     }
 }
 

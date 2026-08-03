@@ -5,43 +5,27 @@ use crate::{
 };
 
 mod error {
-    use crate::{object, reference};
-
     /// The error returned by [`Head::peel_to_id()`](super::Head::try_peel_to_id()) and
     /// [`Head::into_fully_peeled_id()`](super::Head::try_into_peeled_id()).
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        FindExistingObject(#[from] object::find::existing::Error),
-        #[error(transparent)]
-        PeelReference(#[from] reference::peel::Error),
-    }
+    pub type Error = gix_error::Error;
 }
 
 pub use error::Error;
 
 ///
 pub mod into_id {
-    use crate::object;
-
     /// The error returned by [`Head::into_peeled_id()`](super::Head::into_peeled_id()).
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        Peel(#[from] super::Error),
-        #[error("Branch '{name}' does not have any commits")]
-        Unborn { name: gix_ref::FullName },
-        #[error(transparent)]
-        ObjectKind(#[from] object::try_into::Error),
-    }
+    pub type Error = gix_error::Error;
 }
 
 ///
 pub mod to_commit {
     use crate::object;
 
+    // TODO(review): kept concrete. Matched in `Repository::head_tree_id_or_empty()`
+    //                (`gix/src/repository/reference.rs`), via
+    //                `err.downcast_any_ref::<head::peel::to_commit::Error>()` then
+    //                `Some(to_commit::Error::PeelToObject(to_object::Error::Unborn { .. }))`.
     /// The error returned by [`Head::peel_to_commit()`](super::Head::peel_to_commit()).
     #[derive(Debug, thiserror::Error)]
     #[expect(missing_docs)]
@@ -55,6 +39,9 @@ pub mod to_commit {
 
 ///
 pub mod to_object {
+    // TODO(review): kept concrete. Matched (nested inside a `to_commit::Error` match) in
+    //                `Repository::head_tree_id_or_empty()` (`gix/src/repository/reference.rs`):
+    //                `to_commit::Error::PeelToObject(to_object::Error::Unborn { .. })`.
     /// The error returned by [`Head::peel_to_object()`](super::Head::peel_to_object()).
     #[derive(Debug, thiserror::Error)]
     #[expect(missing_docs)]
@@ -74,7 +61,9 @@ impl<'repo> Head<'repo> {
     pub fn into_peeled_id(mut self) -> Result<crate::Id<'repo>, into_id::Error> {
         self.try_peel_to_id()?;
         self.id().ok_or_else(|| match self.kind {
-            Kind::Symbolic(gix_ref::Reference { name, .. }) | Kind::Unborn(name) => into_id::Error::Unborn { name },
+            Kind::Symbolic(gix_ref::Reference { name, .. }) | Kind::Unborn(name) => {
+                gix_error::Error::from_error(gix_error::message!("Branch '{name}' does not have any commits"))
+            }
             Kind::Detached { .. } => unreachable!("id can be returned after peeling"),
         })
     }
@@ -125,11 +114,15 @@ impl<'repo> Head<'repo> {
             } => (*peeled).attach(self.repo),
             Kind::Detached { peeled: None, target } => {
                 let id = target.attach(self.repo);
-                if id.header()?.kind() == gix_object::Kind::Commit {
+                if id.header().map_err(gix_error::Error::from_error)?.kind() == gix_object::Kind::Commit {
                     id
                 } else {
                     {
-                        let obj = id.object()?.peel_tags_to_end()?;
+                        let obj = id
+                            .object()
+                            .map_err(gix_error::Error::from_error)?
+                            .peel_tags_to_end()
+                            .map_err(gix_error::Error::from_error)?;
                         self.kind = Kind::Detached {
                             peeled: Some(obj.id),
                             target: *target,
@@ -142,7 +135,7 @@ impl<'repo> Head<'repo> {
                 let mut nr = r.clone().attach(self.repo);
                 let peeled = nr.peel_to_id();
                 *r = nr.detach();
-                peeled?
+                peeled.map_err(gix_error::Error::from_error)?
             }
         }))
     }
@@ -167,7 +160,7 @@ impl<'repo> Head<'repo> {
             name: self.referent_name().expect("unborn").to_owned(),
         })?;
         id.object()
-            .map_err(|err| to_object::Error::Peel(Error::FindExistingObject(err)))
+            .map_err(|err| to_object::Error::Peel(gix_error::Error::from_error(err)))
     }
 
     /// Follow the symbolic reference of this head until its target object and peel it by following tag objects until there is no

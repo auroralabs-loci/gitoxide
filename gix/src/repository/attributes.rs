@@ -2,14 +2,7 @@
 use crate::{AttributeStack, Repository, config};
 
 /// The error returned by [`Repository::attributes()`].
-#[derive(Debug, thiserror::Error)]
-#[expect(missing_docs)]
-pub enum Error {
-    #[error(transparent)]
-    ConfigureAttributes(#[from] config::attribute_stack::Error),
-    #[error(transparent)]
-    ConfigureExcludes(#[from] config::exclude_stack::Error),
-}
+pub type Error = gix_error::Error;
 
 impl Repository {
     /// Configure a file-system cache for accessing git attributes *and* excludes on a per-path basis.
@@ -38,11 +31,14 @@ impl Repository {
         } else {
             gix_glob::pattern::Case::Sensitive
         };
-        let (attributes, mut buf) = self.config.assemble_attribute_globals(
-            self.common_dir(),
-            attributes_source,
-            self.options.permissions.attributes,
-        )?;
+        let (attributes, mut buf) = self
+            .config
+            .assemble_attribute_globals(
+                self.common_dir(),
+                attributes_source,
+                self.options.permissions.attributes,
+            )
+            .map_err(gix_error::Error::from_error)?;
         let ignore =
             self.config
                 .assemble_exclude_globals(self.common_dir(), exclude_overrides, ignore_source, &mut buf)?;

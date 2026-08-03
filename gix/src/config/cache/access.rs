@@ -2,6 +2,7 @@
 use std::{path::PathBuf, time::Duration};
 
 use gix_config::file::Metadata;
+use gix_error::ResultExt;
 use gix_lock::acquire::Fail;
 
 use crate::{
@@ -19,15 +20,22 @@ use crate::{
 impl Cache {
     #[cfg(feature = "blob-diff")]
     pub(crate) fn diff_algorithm(&self) -> Result<gix_diff::blob::Algorithm, config::diff::algorithm::Error> {
-        use crate::config::{cache::util::ApplyLeniencyDefault, diff::algorithm::Error, tree::Diff};
+        use crate::config::{cache::util::ApplyLeniencyDefault, tree::Diff};
         self.diff_algorithm
             .get_or_try_init(|| {
                 let name = self.resolved.string(Diff::ALGORITHM).unwrap_or_else(|| "myers".into());
+                // `try_into_algorithm()`'s error is erased, so we can no longer match its
+                // `Unimplemented` variant here; re-derive the same condition from `name` instead,
+                // matching the one place `try_into_algorithm()` returns that particular error.
+                let is_unimplemented = name.eq_ignore_ascii_case(b"patience");
                 config::tree::Diff::ALGORITHM
                     .try_into_algorithm(name)
-                    .or_else(|err| match err {
-                        Error::Unimplemented { .. } if self.lenient_config => Ok(gix_diff::blob::Algorithm::Histogram),
-                        err => Err(err),
+                    .or_else(|err| {
+                        if is_unimplemented && self.lenient_config {
+                            Ok(gix_diff::blob::Algorithm::Histogram)
+                        } else {
+                            Err(err)
+                        }
                     })
                     .with_lenient_default(self.lenient_config)
             })
@@ -64,11 +72,14 @@ impl Cache {
                 driver.is_binary = config::tree::Diff::DRIVER_BINARY
                     .try_into_binary(binary)
                     .with_leniency(self.lenient_config)
-                    .map_err(|err| config::diff::drivers::Error {
-                        name: driver.name.clone(),
-                        attribute: "binary",
-                        source: Box::new(err),
-                    })?;
+                    .or_raise(|| {
+                        gix_error::message!(
+                            "Failed to parse value of 'diff.{name}.{attribute}'",
+                            name = driver.name,
+                            attribute = "binary"
+                        )
+                    })
+                    .map_err(gix_error::Error::from)?;
             }
             if let Some(command) = section.value(config::tree::Diff::DRIVER_COMMAND.name) {
                 driver.command = command.into();
@@ -77,20 +88,27 @@ impl Cache {
                 driver.binary_to_text_command = textconv.into();
             }
             if let Some(algorithm) = section.value("algorithm") {
+                // See the comment in `diff_algorithm()` above: re-derive the `Unimplemented`
+                // condition from `algorithm` since `try_into_algorithm()`'s error is now erased.
+                let is_unimplemented = algorithm.eq_ignore_ascii_case(b"patience");
                 driver.algorithm = config::tree::Diff::DRIVER_ALGORITHM
                     .try_into_algorithm(algorithm)
-                    .or_else(|err| match err {
-                        config::diff::algorithm::Error::Unimplemented { .. } if self.lenient_config => {
+                    .or_else(|err| {
+                        if is_unimplemented && self.lenient_config {
                             Ok(gix_diff::blob::Algorithm::Histogram)
+                        } else {
+                            Err(err)
                         }
-                        err => Err(err),
                     })
                     .with_lenient_default(self.lenient_config)
-                    .map_err(|err| config::diff::drivers::Error {
-                        name: driver.name.clone(),
-                        attribute: "algorithm",
-                        source: Box::new(err),
-                    })?
+                    .or_raise(|| {
+                        gix_error::message!(
+                            "Failed to parse value of 'diff.{name}.{attribute}'",
+                            name = driver.name,
+                            attribute = "algorithm"
+                        )
+                    })
+                    .map_err(gix_error::Error::from)?
                     .into();
             }
         }
@@ -138,7 +156,7 @@ impl Cache {
         &self,
     ) -> Result<gix_merge::blob::pipeline::Options, config::merge::pipeline_options::Error> {
         Ok(gix_merge::blob::pipeline::Options {
-            large_file_threshold_bytes: self.big_file_threshold()?,
+            large_file_threshold_bytes: self.big_file_threshold().map_err(gix_error::Error::from_error)?,
         })
     }
 
@@ -147,8 +165,8 @@ impl Cache {
         &self,
     ) -> Result<gix_diff::blob::pipeline::Options, config::diff::pipeline_options::Error> {
         Ok(gix_diff::blob::pipeline::Options {
-            large_file_threshold_bytes: self.big_file_threshold()?,
-            fs: self.fs_capabilities()?,
+            large_file_threshold_bytes: self.big_file_threshold().map_err(gix_error::Error::from_error)?,
+            fs: self.fs_capabilities().map_err(gix_error::Error::from_error)?,
         })
     }
 
@@ -274,16 +292,20 @@ impl Cache {
     pub(crate) fn stat_options(&self) -> Result<gix_index::entry::stat::Options, config::stat_options::Error> {
         use crate::config::tree::gitoxide;
         Ok(gix_index::entry::stat::Options {
-            trust_ctime: boolean(self, "core.trustCTime", &Core::TRUST_C_TIME, true)?,
-            use_nsec: boolean(self, "gitoxide.core.useNsec", &gitoxide::Core::USE_NSEC, false)?,
-            use_stdev: boolean(self, "gitoxide.core.useStdev", &gitoxide::Core::USE_STDEV, false)?,
+            trust_ctime: boolean(self, "core.trustCTime", &Core::TRUST_C_TIME, true)
+                .map_err(gix_error::Error::from_error)?,
+            use_nsec: boolean(self, "gitoxide.core.useNsec", &gitoxide::Core::USE_NSEC, false)
+                .map_err(gix_error::Error::from_error)?,
+            use_stdev: boolean(self, "gitoxide.core.useStdev", &gitoxide::Core::USE_STDEV, false)
+                .map_err(gix_error::Error::from_error)?,
             check_stat: self
                 .apply_leniency(
                     self.resolved
                         .string(Core::CHECK_STAT)
                         .map(|v| Core::CHECK_STAT.try_into_checkstat(v))
                         .transpose(),
-                )?
+                )
+                .map_err(gix_error::Error::from_error)?
                 .unwrap_or(true),
         })
     }
@@ -320,13 +342,15 @@ impl Cache {
     ) -> Result<gix_worktree_state::checkout::Options, config::checkout_options::Error> {
         use crate::config::tree::gitoxide;
         let git_dir = repo.git_dir();
-        let thread_limit = self.apply_leniency(
-            crate::config::tree::Checkout::WORKERS.try_from_workers(
-                self.resolved
-                    .integer_filter("checkout.workers", &mut self.filter_config_section.clone()),
-            ),
-        )?;
-        let capabilities = self.fs_capabilities()?;
+        let thread_limit = self
+            .apply_leniency(
+                crate::config::tree::Checkout::WORKERS.try_from_workers(
+                    self.resolved
+                        .integer_filter("checkout.workers", &mut self.filter_config_section.clone()),
+                ),
+            )
+            .map_err(gix_error::Error::from_error)?;
+        let capabilities = self.fs_capabilities().map_err(gix_error::Error::from_error)?;
         let filters = {
             let mut filters =
                 gix_filter::Pipeline::new(repo.command_context()?, crate::filter::Pipeline::options(repo)?);
@@ -342,29 +366,27 @@ impl Cache {
             "gitoxide.core.filterProcessDelay",
             &gitoxide::Core::FILTER_PROCESS_DELAY,
             true,
-        )? {
+        )
+        .map_err(gix_error::Error::from_error)?
+        {
             gix_filter::driver::apply::Delay::Allow
         } else {
             gix_filter::driver::apply::Delay::Forbid
         };
         Ok(gix_worktree_state::checkout::Options {
             filter_process_delay,
-            validate: self.protect_options()?,
+            validate: self.protect_options().map_err(gix_error::Error::from_error)?,
             filters,
             attributes: self
-                .assemble_attribute_globals(git_dir, attributes_source, self.attributes)?
+                .assemble_attribute_globals(git_dir, attributes_source, self.attributes)
+                .map_err(gix_error::Error::from_error)?
                 .0,
             fs: capabilities,
             thread_limit,
             destination_is_initially_empty: false,
             overwrite_existing: false,
             keep_going: false,
-            stat_options: self.stat_options().map_err(|err| match err {
-                config::stat_options::Error::ConfigCheckStat(err) => {
-                    config::checkout_options::Error::ConfigCheckStat(err)
-                }
-                config::stat_options::Error::ConfigBoolean(err) => config::checkout_options::Error::ConfigBoolean(err),
-            })?,
+            stat_options: self.stat_options()?,
         })
     }
 
@@ -388,14 +410,18 @@ impl Cache {
         source: gix_worktree::stack::state::ignore::Source,
         buf: &mut Vec<u8>,
     ) -> Result<gix_worktree::stack::state::Ignore, config::exclude_stack::Error> {
-        let excludes_file = match self.excludes_file()? {
+        let excludes_file = match self
+            .excludes_file()
+            .or_raise(|| gix_error::message("The value for `core.excludesFile` could not be read from configuration"))?
+        {
             Some(user_path) => Some(user_path),
-            None => self.xdg_config_path("ignore")?,
+            None => self.xdg_config_path("ignore").map_err(gix_error::Error::from_error)?,
         };
-        let parse_ignore = self.ignore_pattern_parser()?;
+        let parse_ignore = self.ignore_pattern_parser().map_err(gix_error::Error::from_error)?;
         Ok(gix_worktree::stack::state::Ignore::new(
             overrides.unwrap_or_default(),
-            gix_ignore::Search::from_git_dir(git_dir, excludes_file, buf, parse_ignore)?,
+            gix_ignore::Search::from_git_dir(git_dir, excludes_file, buf, parse_ignore)
+                .or_raise(|| gix_error::message("Could not read repository exclude"))?,
             None,
             source,
             parse_ignore,

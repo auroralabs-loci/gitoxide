@@ -23,14 +23,31 @@ impl From<ForUser> for Option<BString> {
 }
 
 /// The error used by [`parse()`], [`with()`] and [`expand_path()`](crate::expand_path()).
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 #[expect(missing_docs)]
 pub enum Error {
-    #[error("UTF8 conversion on non-unix system failed for path: {path:?}")]
     IllformedUtf8 { path: BString },
-    #[error("Home directory could not be obtained for {}", match user {Some(user) => format!("user '{user}'"), None => "current user".into()})]
     MissingHome { user: Option<BString> },
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::IllformedUtf8 { path } => {
+                write!(f, "UTF8 conversion on non-unix system failed for path: {path:?}")
+            }
+            Error::MissingHome { user } => {
+                let user: std::borrow::Cow<'_, str> = match user {
+                    Some(user) => format!("user '{user}'").into(),
+                    None => "current user".into(),
+                };
+                write!(f, "Home directory could not be obtained for {user}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 fn path_segments(path: &BStr) -> Option<impl Iterator<Item = &[u8]>> {
     if path.starts_with(b"/") {

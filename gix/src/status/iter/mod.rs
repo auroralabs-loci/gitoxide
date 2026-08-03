@@ -1,5 +1,8 @@
 use std::sync::atomic::Ordering;
 
+#[cfg(feature = "parallel")]
+use gix_error::ErrorExt;
+use gix_error::ResultExt;
 use gix_status::index_as_worktree::{Change, EntryStatus};
 
 use crate::{
@@ -42,13 +45,20 @@ where
         patterns: impl IntoIterator<Item = BString>,
     ) -> Result<Iter, crate::status::into_iter::Error> {
         let index = match self.index {
-            None => IndexPersistedOrInMemory::Persisted(self.repo.index_or_empty()?),
+            None => {
+                IndexPersistedOrInMemory::Persisted(self.repo.index_or_empty().map_err(gix_error::Error::from_error)?)
+            }
             Some(index) => index,
         };
 
         let obtain_tree_id = || -> Result<Option<gix_hash::ObjectId>, crate::status::into_iter::Error> {
             Ok(match self.head_tree {
-                Some(None) => Some(self.repo.head_tree_id_or_empty()?.into()),
+                Some(None) => Some(
+                    self.repo
+                        .head_tree_id_or_empty()
+                        .or_raise(|| gix_error::message("Could not obtain the tree id pointed to by `HEAD`"))?
+                        .into(),
+                ),
                 Some(Some(tree_id)) => Some(tree_id),
                 None => None,
             })
@@ -56,7 +66,8 @@ where
 
         let skip_hash = crate::config::tree::Index::SKIP_HASH
             .enrich_error(self.repo.config.resolved.boolean(crate::config::tree::Index::SKIP_HASH))
-            .with_lenient_default(self.repo.config.lenient_config)?
+            .with_lenient_default(self.repo.config.lenient_config)
+            .map_err(gix_error::Error::from_error)?
             .unwrap_or_default();
         let should_interrupt = self.should_interrupt.clone().unwrap_or_default();
         let submodule = BuiltinSubmoduleStatus::new(self.repo.clone().into_sync(), self.submodules)?;
@@ -105,7 +116,9 @@ where
                             )
                         }
                     })
-                    .map_err(crate::status::into_iter::Error::SpawnThread)?
+                    .map_err(|err| {
+                        gix_error::Error::from(err.and_raise(gix_error::message("Failed to spawn producer thread")))
+                    })?
                     .into()
             } else {
                 None
@@ -139,7 +152,9 @@ where
                         })
                     }
                 })
-                .map_err(crate::status::into_iter::Error::SpawnThread)?;
+                .map_err(|err| {
+                    gix_error::Error::from(err.and_raise(gix_error::message("Failed to spawn producer thread")))
+                })?;
 
             Ok(Iter {
                 rx_and_join: Some((rx, join_index_worktree, join_tree_index)),
@@ -164,21 +179,24 @@ where
                         self.index_worktree_options.dirwalk_options.as_ref(),
                     )?;
                     let mut items = Vec::new();
-                    let tree_index = self.repo.tree_index_status(
-                        &tree_id,
-                        &index,
-                        Some(&mut pathspec),
-                        self.tree_index_renames,
-                        |change, _, _| {
-                            items.push(change.into_owned().into());
-                            let action = if should_interrupt.load(Ordering::Acquire) {
-                                std::ops::ControlFlow::Break(())
-                            } else {
-                                std::ops::ControlFlow::Continue(())
-                            };
-                            Ok::<_, std::convert::Infallible>(action)
-                        },
-                    )?;
+                    let tree_index = self
+                        .repo
+                        .tree_index_status(
+                            &tree_id,
+                            &index,
+                            Some(&mut pathspec),
+                            self.tree_index_renames,
+                            |change, _, _| {
+                                items.push(change.into_owned().into());
+                                let action = if should_interrupt.load(Ordering::Acquire) {
+                                    std::ops::ControlFlow::Break(())
+                                } else {
+                                    std::ops::ControlFlow::Continue(())
+                                };
+                                Ok::<_, std::convert::Infallible>(action)
+                            },
+                        )
+                        .map_err(gix_error::Error::from_error)?;
                     (items, Some(tree_index))
                 }
                 None => (Vec::new(), None),
@@ -219,6 +237,12 @@ where
     }
 }
 
+// TODO(review): kept concrete. Matched in `status::index_worktree::Iter::next()`
+//                (`gix/src/status/index_worktree.rs`):
+//                `Error::IndexWorktree(err) => err` and `Error::TreeIndex(_) => { .. }`. Separately,
+//                `submodule::status::Error::NextStatusItem` (`gix/src/submodule/mod.rs`) already
+//                has an erased slot via `StatusIter`, so this type is doubly blocked from erasure
+//                there.
 /// The error returned for each item returned by [`Iter`].
 #[derive(Debug, thiserror::Error)]
 #[expect(missing_docs)]

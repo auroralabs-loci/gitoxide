@@ -110,15 +110,44 @@ pub mod write {
     }
 
     /// The error returned by [`write()`](crate::write()).
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug)]
     #[expect(missing_docs)]
     pub enum Error {
-        #[error(transparent)]
-        Commit(#[from] gix_lock::commit::Error<gix_lock::File>),
-        #[error("Could not remove an empty shallow file")]
-        RemoveEmpty(#[from] std::io::Error),
-        #[error("Failed to write object id to shallow file")]
+        Commit(gix_lock::commit::Error<gix_lock::File>),
+        RemoveEmpty(std::io::Error),
         Io(std::io::Error),
+    }
+
+    impl std::fmt::Display for Error {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Error::Commit(err) => std::fmt::Display::fmt(err, f),
+                Error::RemoveEmpty(_) => f.write_str("Could not remove an empty shallow file"),
+                Error::Io(_) => f.write_str("Failed to write object id to shallow file"),
+            }
+        }
+    }
+
+    impl std::error::Error for Error {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match self {
+                Error::Commit(err) => err.source(),
+                Error::RemoveEmpty(err) => Some(err),
+                Error::Io(_) => None,
+            }
+        }
+    }
+
+    impl From<gix_lock::commit::Error<gix_lock::File>> for Error {
+        fn from(err: gix_lock::commit::Error<gix_lock::File>) -> Self {
+            Error::Commit(err)
+        }
+    }
+
+    impl From<std::io::Error> for Error {
+        fn from(err: std::io::Error) -> Self {
+            Error::RemoveEmpty(err)
+        }
     }
 }
 pub use write::function::write;
@@ -126,12 +155,42 @@ pub use write::function::write;
 ///
 pub mod read {
     /// The error returned by [`read`](crate::read()).
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug)]
     #[expect(missing_docs)]
     pub enum Error {
-        #[error("Could not open shallow file for reading")]
-        Io(#[from] std::io::Error),
-        #[error("Could not decode a line in shallow file as hex-encoded object hash")]
-        DecodeHash(#[from] gix_hash::decode::Error),
+        Io(std::io::Error),
+        DecodeHash(gix_hash::decode::Error),
+    }
+
+    impl std::fmt::Display for Error {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Error::Io(_) => f.write_str("Could not open shallow file for reading"),
+                Error::DecodeHash(_) => {
+                    f.write_str("Could not decode a line in shallow file as hex-encoded object hash")
+                }
+            }
+        }
+    }
+
+    impl std::error::Error for Error {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match self {
+                Error::Io(err) => Some(err),
+                Error::DecodeHash(err) => Some(err),
+            }
+        }
+    }
+
+    impl From<std::io::Error> for Error {
+        fn from(err: std::io::Error) -> Self {
+            Error::Io(err)
+        }
+    }
+
+    impl From<gix_hash::decode::Error> for Error {
+        fn from(err: gix_hash::decode::Error) -> Self {
+            Error::DecodeHash(err)
+        }
     }
 }

@@ -1,73 +1,34 @@
 ///
 pub mod open_modules_file {
     /// The error returned by [Repository::open_modules_file()](crate::Repository::open_modules_file()).
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        Configuration(#[from] gix_submodule::init::Error),
-        #[error("Could not read '.gitmodules' file")]
-        Io(#[from] std::io::Error),
-    }
+    pub type Error = gix_error::Error;
 }
 
 ///
 pub mod modules {
     /// The error returned by [Repository::modules()](crate::Repository::modules()).
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        OpenModulesFile(#[from] crate::submodule::open_modules_file::Error),
-        #[error(transparent)]
-        OpenIndex(#[from] crate::worktree::open_index::Error),
-        #[error("Could not find the .gitmodules file by id in the object database")]
-        FindExistingBlob(#[from] crate::object::find::existing::Error),
-        #[error(transparent)]
-        FindHeadRef(#[from] crate::reference::find::existing::Error),
-        #[error(transparent)]
-        PeelHeadRef(#[from] crate::head::peel::Error),
-        #[error(transparent)]
-        PeelObjectToCommit(#[from] crate::object::peel::to_kind::Error),
-        #[error(transparent)]
-        TreeFromCommit(#[from] crate::object::commit::Error),
-    }
+    pub type Error = gix_error::Error;
 }
 
 ///
 pub mod is_active {
     /// The error returned by [Submodule::is_active()](crate::Submodule::is_active()).
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        InitIsActivePlatform(#[from] gix_submodule::is_active_platform::Error),
-        #[error(transparent)]
-        QueryIsActive(#[from] gix_config::value::Error),
-        #[error(transparent)]
-        InitAttributes(#[from] crate::config::attribute_stack::Error),
-        #[error(transparent)]
-        InitPathspecDefaults(#[from] gix_pathspec::defaults::from_environment::Error),
-        #[error(transparent)]
-        ObtainIndex(#[from] crate::repository::index_or_load_from_head::Error),
-    }
+    pub type Error = gix_error::Error;
 }
 
 ///
 pub mod fetch_recurse {
     /// The error returned by [Submodule::fetch_recurse()](crate::Submodule::fetch_recurse()).
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        ModuleBoolean(#[from] gix_submodule::config::Error),
-        #[error(transparent)]
-        ConfigurationFallback(#[from] crate::config::key::GenericErrorWithValue),
-    }
+    pub type Error = gix_error::Error;
 }
 
 ///
 pub mod open {
+    // TODO(review): kept concrete. Matched at `gix/tests/gix/submodule.rs:343-344` and `:800-801`:
+    //                `Error::GitDir(git_dir_try_old_form::Error::InvalidGitDirFileTarget { .. })` /
+    //                `::GitDir(..)`. Separately, `submodule::status::Error::OpenRepository`
+    //                (`gix/src/submodule/mod.rs`) already has an erased slot via `StatusIter`, so
+    //                this type is doubly blocked from erasure there.
     /// The error returned by [Submodule::open()](crate::Submodule::open()).
     #[derive(Debug, thiserror::Error)]
     #[expect(missing_docs)]
@@ -85,6 +46,11 @@ pub mod open {
 
 ///
 pub mod git_dir_try_old_form {
+    // TODO(review): kept concrete. Callers destructure its `InvalidGitDirFileTarget { gitdir_file,
+    //                target, source }` variant at `gix/tests/gix/submodule.rs:325`, `:334`, `:344`,
+    //                `:358`, `:398` and `:412`; `:793` matches its `GitDir(..)` variant. Its two
+    //                `#[from]` parents — `open::Error::GitDir` (above) and `state::Error::
+    //                GitDirTryOldForm` (below) — have no other erased member.
     /// The error returned by [Submodule::git_dir_try_old_form()](crate::Submodule::git_dir_try_old_form()).
     #[derive(Debug, thiserror::Error)]
     #[expect(missing_docs)]
@@ -105,6 +71,10 @@ pub mod git_dir_try_old_form {
 
 ///
 pub mod state {
+    // TODO(review): kept concrete. Matched at `gix/tests/gix/submodule.rs:333`, `:411` and `:808`:
+    //                `Error::GitDirTryOldForm(..)`. Separately, `submodule::status::Error::State`
+    //                (`gix/src/submodule/mod.rs`) already has an erased slot via `StatusIter`, so
+    //                this type is doubly blocked from erasure there.
     /// The error returned by [Submodule::state()](crate::Submodule::state()).
     #[derive(Debug, thiserror::Error)]
     #[expect(missing_docs)]
@@ -121,11 +91,16 @@ pub mod state {
 ///
 pub mod index_id {
     /// The error returned by [Submodule::index_id()](crate::Submodule::index_id()).
+    // TODO(review): kept concrete because `submodule::status::Error` already embeds the erased
+    //                `status::into_iter::Error` (via `StatusIter`); erasing this one would give it
+    //                a second `From<gix::Error>` via `IndexId`.
     #[derive(Debug, thiserror::Error)]
     #[expect(missing_docs)]
     pub enum Error {
         #[error(transparent)]
         PathConfiguration(#[from] gix_submodule::config::path::Error),
+        // TODO(review): embeds an erased `gix_error::Error`; erasing a sibling variant would collide
+        //                with it via a duplicate `From<gix::Error>` impl (E0119).
         #[error(transparent)]
         Index(#[from] crate::repository::index_or_load_from_head::Error),
     }
@@ -134,6 +109,9 @@ pub mod index_id {
 ///
 pub mod head_id {
     /// The error returned by [Submodule::head_id()](crate::Submodule::head_id()).
+    // TODO(review): kept concrete because `submodule::status::Error` already embeds the erased
+    //                `status::into_iter::Error` (via `StatusIter`); erasing this one would give it
+    //                a second `From<gix::Error>` via `HeadId`.
     #[derive(Debug, thiserror::Error)]
     #[expect(missing_docs)]
     pub enum Error {

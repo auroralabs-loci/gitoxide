@@ -63,6 +63,14 @@ impl Default for Submodule {
     }
 }
 
+// TODO(review): kept concrete due to an E0119 collision. `submodule::status::Error`
+//                (`gix/src/submodule/mod.rs`) embeds both this type, via
+//                `StatusPlatform(#[from] crate::status::Error)`, and the already-erased
+//                `status::into_iter::Error`, via `StatusIter(#[from] ...)`. Erasing `status::Error`
+//                would give `submodule::status::Error` two `From<gix_error::Error>` impls. (The
+//                other former blocker, `status::is_dirty::Error::StatusPlatform`, no longer applies:
+//                `is_dirty::Error` is itself now `gix_error::Error`, so it can no longer embed
+//                anything via `#[from]`.)
 /// The error returned by [status()](Repository::status).
 #[derive(Debug, thiserror::Error)]
 #[expect(missing_docs)]
@@ -138,20 +146,7 @@ pub mod is_dirty {
     use crate::Repository;
 
     /// The error returned by [Repository::is_dirty()].
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        StatusPlatform(#[from] crate::status::Error),
-        #[error(transparent)]
-        CreateStatusIterator(#[from] crate::status::into_iter::Error),
-        #[error(transparent)]
-        TreeIndexStatus(#[from] crate::status::tree_index::Error),
-        #[error(transparent)]
-        HeadTreeId(#[from] crate::reference::head_tree_id::Error),
-        #[error(transparent)]
-        OpenWorktreeIndex(#[from] crate::worktree::open_index::Error),
-    }
+    pub type Error = gix_error::Error;
 
     impl Repository {
         /// Returns `true` if the repository is dirty.
@@ -173,20 +168,22 @@ pub mod is_dirty {
                 // Run this first as there is a high likelihood to find something, and it's very fast.
                 self.tree_index_status(
                     &head_tree_id,
-                    &*self.index_or_empty()?,
+                    &*self.index_or_empty().map_err(gix_error::Error::from_error)?,
                     None,
                     crate::status::tree_index::TrackRenames::Disabled,
                     |_, _, _| {
                         index_is_dirty = true;
                         Ok::<_, Infallible>(std::ops::ControlFlow::Break(()))
                     },
-                )?;
+                )
+                .map_err(gix_error::Error::from_error)?;
                 if index_is_dirty {
                     return Ok(true);
                 }
             }
             let is_dirty = self
-                .status(gix_features::progress::Discard)?
+                .status(gix_features::progress::Discard)
+                .map_err(gix_error::Error::from_error)?
                 .index_worktree_rewrites(None)
                 .index_worktree_submodules(crate::status::Submodule::AsConfigured { check_dirty: true })
                 .index_worktree_options_mut(|opts| {
@@ -204,32 +201,7 @@ pub mod is_dirty {
 ///
 pub mod into_iter {
     /// The error returned by [status::Platform::into_iter()](crate::status::Platform::into_iter()).
-    #[derive(Debug, thiserror::Error)]
-    #[expect(missing_docs)]
-    pub enum Error {
-        #[error(transparent)]
-        Index(#[from] crate::worktree::open_index::Error),
-        #[error("Failed to spawn producer thread")]
-        #[cfg(feature = "parallel")]
-        SpawnThread(#[source] std::io::Error),
-        #[error(transparent)]
-        #[cfg(not(feature = "parallel"))]
-        IndexWorktreeStatus(#[from] crate::status::index_worktree::Error),
-        #[error(transparent)]
-        ConfigSkipHash(#[from] crate::config::boolean::Error),
-        #[error(transparent)]
-        PrepareSubmodules(#[from] crate::submodule::modules::Error),
-        #[error("Could not create an index for the head tree to compare with the worktree index")]
-        HeadTreeIndex(#[from] crate::repository::index_from_tree::Error),
-        #[error("Could not obtain the tree id pointed to by `HEAD`")]
-        HeadTreeId(#[from] crate::reference::head_tree_id::Error),
-        #[error(transparent)]
-        AttributesAndExcludes(#[from] crate::repository::attributes::Error),
-        #[error(transparent)]
-        Pathspec(#[from] crate::pathspec::init::Error),
-        #[error(transparent)]
-        HeadTreeDiff(#[from] crate::status::tree_index::Error),
-    }
+    pub type Error = gix_error::Error;
 }
 
 mod platform;
