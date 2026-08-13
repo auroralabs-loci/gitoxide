@@ -167,7 +167,9 @@ fn subtract_pairs(now: Option<SystemTime>, pairs: &[Pair<'_>]) -> Result<Zoned, 
                 // Like Git, which calls `update_tm(&tm, &now, 0)` here, roll over anything a
                 // previous pair may have left beyond the end of a month.
                 fields = Fields::from(fields.normalize()?);
-                let total = i64::from(fields.year) * 12 + i64::from(fields.month) - 1 - months;
+                let total = (i64::from(fields.year) * 12 + i64::from(fields.month) - 1)
+                    .checked_sub(months)
+                    .ok_or_else(err)?;
                 fields.year = i16::try_from(total.div_euclid(12)).ok().ok_or_else(err)?;
                 fields.month = i8::try_from(total.rem_euclid(12) + 1).expect("a value in 1..=12");
             }
