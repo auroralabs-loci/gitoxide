@@ -727,6 +727,7 @@ fn conflict_added_by_them_does_not_skip_following_dirty_path_when_chunked() {
             symlink_metadata_calls: 1,
             ..Default::default()
         },
+        "every conflict and dirty entry must be processed; only SKIP_WORKTREE padding entries are skipped",
     );
 }
 
