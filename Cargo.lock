@@ -2189,7 +2189,6 @@ dependencies = [
  "criterion",
  "gix-error",
  "gix-hash",
- "gix-hashtable",
  "gix-note",
  "gix-object",
  "gix-odb",
