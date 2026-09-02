@@ -7,7 +7,7 @@ use gix_hash::{ObjectId, oid};
 use gix_object::{
     Find, FindExt, Tree, Write,
     bstr::{BStr, BString, ByteSlice},
-    tree::{Editor, EntryKind, EntryMode},
+    tree::{Editor, Entry, EntryKind, EntryMode},
 };
 
 /// The type-erased error returned by note operations.
@@ -469,6 +469,10 @@ fn write(
 ) -> Result<ObjectId, Error> {
     let mut notes = Vec::new();
     collect_for_write(root, 0, 0, objects, non_notes, &mut notes)?;
+    if non_notes.is_empty() {
+        return write_note_entries(&notes, 0, objects);
+    }
+
     let mut editor = Editor::new(Tree { entries: Vec::new() }, objects, hash);
     for entry in non_notes.iter() {
         editor
@@ -482,6 +486,39 @@ fn write(
     }
     editor
         .write(|tree| objects.write(tree).map_err(gix_error::Error::from_boxed))
+        .or_raise_erased(|| message("Could not write the notes tree"))
+}
+
+fn write_note_entries(notes: &[TreeEntry], level: usize, objects: &impl Write) -> Result<ObjectId, Error> {
+    let mut entries = Vec::new();
+    let mut start = 0;
+    while start < notes.len() {
+        let name = &notes[start].path[level];
+        let mut end = start + 1;
+        while end < notes.len() && notes[end].path[level] == *name {
+            end += 1;
+        }
+
+        if notes[start].path.len() == level + 1 {
+            debug_assert_eq!(end, start + 1, "a notes path cannot be both a tree and a blob");
+            entries.push(Entry {
+                mode: notes[start].mode,
+                filename: name.clone(),
+                oid: notes[start].object_id,
+            });
+        } else {
+            entries.push(Entry {
+                mode: EntryKind::Tree.into(),
+                filename: name.clone(),
+                oid: write_note_entries(&notes[start..end], level + 1, objects)?,
+            });
+        }
+        start = end;
+    }
+
+    objects
+        .write(&Tree { entries })
+        .map_err(gix_error::Error::from_boxed)
         .or_raise_erased(|| message("Could not write the notes tree"))
 }
 
