@@ -31,6 +31,17 @@ pub fn installation_config_prefix() -> Option<&'static Path> {
     installation_config().map(git::config_to_base_path)
 }
 
+/// Return the location of the system-wide Git configuration file.
+///
+/// On Windows this shares the single Git invocation used by [`installation_config()`].
+pub fn system_config() -> Option<&'static Path> {
+    if cfg!(windows) {
+        git::system_config_path().and_then(|p| crate::try_from_byte_slice(p).ok())
+    } else {
+        Some(Path::new("/etc/gitconfig"))
+    }
+}
+
 /// Return the shell that Git would use, the shell to execute commands from.
 ///
 /// On Windows, this is the full path to `sh.exe` bundled with Git for Windows if we can find it.

@@ -16,6 +16,8 @@ impl Default for Options {
             open_path_as_is: false,
             api_config_overrides: Vec::new(),
             cli_config_overrides: Vec::new(),
+            git_installation_config_path: None,
+            system_config_path: None,
             use_repository_local_environment: true,
             current_dir: None,
         }
@@ -54,6 +56,22 @@ impl Options {
     /// These are equivalent to CLI overrides passed with `-c` in `git`, for example.
     pub fn cli_overrides(mut self, values: impl IntoIterator<Item = impl Into<BString>>) -> Self {
         self.cli_config_overrides = values.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Use `path` as Git's installation configuration file instead of discovering it.
+    ///
+    /// The file is loaded only when [`permissions.config.git_binary`][Permissions::config] is enabled.
+    pub fn git_installation_config_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.git_installation_config_path = Some(path.into().into_boxed_path());
+        self
+    }
+
+    /// Use `path` as the system configuration file instead of discovering it.
+    ///
+    /// The file is loaded only when [`permissions.config.system`][Permissions::config] is enabled.
+    pub fn system_config_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.system_config_path = Some(path.into().into_boxed_path());
         self
     }
 
@@ -181,6 +199,8 @@ impl gix_sec::trust::DefaultForLevel for Options {
                 open_path_as_is: false,
                 api_config_overrides: Vec::new(),
                 cli_config_overrides: Vec::new(),
+                git_installation_config_path: None,
+                system_config_path: None,
                 use_repository_local_environment: true,
                 current_dir: None,
             },
@@ -195,6 +215,8 @@ impl gix_sec::trust::DefaultForLevel for Options {
                 lossy_config: false,
                 api_config_overrides: Vec::new(),
                 cli_config_overrides: Vec::new(),
+                git_installation_config_path: None,
+                system_config_path: None,
                 use_repository_local_environment: true,
                 current_dir: None,
             },
