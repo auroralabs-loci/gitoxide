@@ -3,6 +3,7 @@ use std::{
     io::{Read, Write},
     sync::{
         Arc,
+        atomic::{AtomicBool, Ordering},
         mpsc::{Receiver, SyncSender, TrySendError, sync_channel},
     },
     thread,
@@ -58,6 +59,9 @@ struct Handler {
     /// Caller-provided base URL used to derive the transport-visible base URL after redirects.
     base_url: String,
     redirected_base_url: SharedRedirectedBaseUrl,
+    /// If set, the `progress()` meter aborts the in-flight transfer as soon as
+    /// this flag reads `true`. See `http::Options::should_interrupt`.
+    should_interrupt: Option<Arc<AtomicBool>>,
 }
 
 impl Handler {
@@ -230,6 +234,17 @@ impl curl::easy::Handler for Handler {
             None => Ok(0), // nothing more to receive, reader is done
         }
     }
+    fn progress(&mut self, _dltotal: f64, _dlnow: f64, _ultotal: f64, _ulnow: f64) -> bool {
+        // curl invokes this throughout the transfer — including roughly once a
+        // second while a socket is idle — so returning `false` here is what lets
+        // `should_interrupt` abort a fetch that is blocked waiting on the remote,
+        // which the body `write()` callback (data-driven) can never reach.
+        // Returning `false` aborts with `CURLE_ABORTED_BY_CALLBACK`.
+        match &self.should_interrupt {
+            Some(flag) => !flag.load(Ordering::Relaxed),
+            None => true,
+        }
+    }
     fn read(&mut self, data: &mut [u8]) -> Result<usize, curl::easy::ReadError> {
         match self.receive_body.as_mut() {
             Some(StreamOrBuffer::Stream(reader)) => reader.read(data).map_err(|_err| curl::easy::ReadError::Abort),
@@ -350,6 +365,7 @@ pub fn new() -> Worker {
                     ssl_verify,
                     http_version,
                     backend,
+                    should_interrupt,
                 },
         } in req_recv
         {
@@ -458,8 +474,13 @@ pub fn new() -> Worker {
                 handle.low_speed_limit(low_speed_limit_bytes_per_second)?;
                 handle.low_speed_time(Duration::from_secs(low_speed_time_seconds))?;
             }
+            // Enable curl's transfer meter only when a cancellation flag is
+            // present; `Handler::progress` then polls it and aborts a stalled
+            // transfer that the data-driven `write()` callback can't observe.
+            handle.progress(should_interrupt.is_some())?;
             let (receive_data, receive_headers, send_body, mut receive_body) = {
                 let handler = handle.get_mut();
+                handler.should_interrupt = should_interrupt;
                 let (send, receive_data) = pipe::unidirectional(1);
                 handler.send_data = Some(send);
                 let (send, receive_headers) = pipe::unidirectional(1);
@@ -517,14 +538,30 @@ pub fn new() -> Worker {
                 if let Some((action, authenticate)) = proxy_auth_action {
                     authenticate.lock().expect("no panics in other threads")(action.erase()).ok();
                 }
-                let err = Err(io::Error::new(
-                    if curl_is_spurious(&err) {
-                        std::io::ErrorKind::ConnectionReset
-                    } else {
-                        std::io::ErrorKind::Other
-                    },
-                    err,
-                ));
+                // Only `Handler::progress` and `Handler::read` can abort by callback, so the flag
+                // is what tells cancellation apart from an upload whose producer failed.
+                let cancelled = err.is_aborted_by_callback()
+                    && handler
+                        .should_interrupt
+                        .as_ref()
+                        .is_some_and(|flag| flag.load(Ordering::Relaxed));
+                let err = Err(if cancelled {
+                    // Deliberately *not* `ErrorKind::Interrupted`: `read_exact()` and `read_until()`
+                    // retry that kind, and the pipe below carries an error exactly once before it
+                    // ends, so the retry would see EOF and the caller an `UnexpectedEof` or a
+                    // missing-header error instead. `gix_features::interrupt::Read` avoids the kind
+                    // for the same reason.
+                    io::Error::other(format!("Interrupted: {err}"))
+                } else {
+                    io::Error::new(
+                        if curl_is_spurious(&err) {
+                            std::io::ErrorKind::ConnectionReset
+                        } else {
+                            std::io::ErrorKind::Other
+                        },
+                        err,
+                    )
+                });
                 handler.receive_body.take();
                 match (handler.send_header.take(), handler.send_data.take()) {
                     (Some(header), mut data) => {
