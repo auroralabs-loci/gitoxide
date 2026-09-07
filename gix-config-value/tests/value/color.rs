@@ -81,6 +81,24 @@ mod name {
         assert_eq!(Name::from_str("#ff0010"), Ok(Name::Rgb(255, 0, 16)));
         assert_eq!(Name::from_str("#ffffff"), Ok(Name::Rgb(255, 255, 255)));
         assert_eq!(Name::from_str("#000000"), Ok(Name::Rgb(0, 0, 0)));
+        assert_eq!(Name::from_str("#FF0010"), Ok(Name::Rgb(255, 0, 16)));
+    }
+
+    #[test]
+    fn hex_shorthand_doubles_each_digit() {
+        // Values recorded from `git -c foo.bar=<input> config --type=color foo.bar` on
+        // git 2.50.1, which emits `\x1b[38;2;<r>;<g>;<b>m`. `git-config(1)` states it as
+        // "12-bit RGB values like #f1b, which is equivalent to the 24-bit color #ff11bb".
+        assert_eq!(Name::from_str("#f1b"), Ok(Name::Rgb(0xff, 0x11, 0xbb)));
+        assert_eq!(Name::from_str("#abc"), Ok(Name::Rgb(170, 187, 204)));
+        assert_eq!(Name::from_str("#000"), Ok(Name::Rgb(0, 0, 0)));
+        assert_eq!(Name::from_str("#fff"), Ok(Name::Rgb(255, 255, 255)));
+        assert_eq!(Name::from_str("#aBc"), Ok(Name::Rgb(170, 187, 204)));
+
+        // The shorthand and the long form it stands for are the same color, and the
+        // shorthand renders back as that long form.
+        assert_eq!(Name::from_str("#f1b"), Name::from_str("#ff11bb"));
+        assert_eq!(Name::from_str("#f1b").unwrap().to_string(), "#ff11bb");
     }
 
     #[test]
@@ -92,9 +110,18 @@ mod name {
         assert!(Name::from_str("bright").is_err());
         assert!(Name::from_str("256").is_err());
         assert!(Name::from_str("#").is_err());
-        assert!(Name::from_str("#fff").is_err());
         assert!(Name::from_str("#gggggg").is_err());
         assert!(Name::from_str("#=»©=").is_err());
+
+        // `git` takes three or six digits and nothing in between or beyond, so the
+        // lengths either side of both forms stay rejected.
+        assert!(Name::from_str("#ab").is_err());
+        assert!(Name::from_str("#abcd").is_err());
+        assert!(Name::from_str("#abcde").is_err());
+        assert!(Name::from_str("#abcdefa").is_err());
+        assert!(Name::from_str("#aabbccddeeff").is_err());
+        assert!(Name::from_str("#ggg").is_err());
+        assert!(Name::from_str("#-12").is_err());
     }
 }
 
