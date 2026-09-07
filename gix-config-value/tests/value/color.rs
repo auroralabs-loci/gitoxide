@@ -89,16 +89,44 @@ mod name {
         // Values recorded from `git -c foo.bar=<input> config --type=color foo.bar` on
         // git 2.50.1, which emits `\x1b[38;2;<r>;<g>;<b>m`. `git-config(1)` states it as
         // "12-bit RGB values like #f1b, which is equivalent to the 24-bit color #ff11bb".
-        assert_eq!(Name::from_str("#f1b"), Ok(Name::Rgb(0xff, 0x11, 0xbb)));
-        assert_eq!(Name::from_str("#abc"), Ok(Name::Rgb(170, 187, 204)));
-        assert_eq!(Name::from_str("#000"), Ok(Name::Rgb(0, 0, 0)));
-        assert_eq!(Name::from_str("#fff"), Ok(Name::Rgb(255, 255, 255)));
-        assert_eq!(Name::from_str("#aBc"), Ok(Name::Rgb(170, 187, 204)));
+        assert_eq!(
+            Name::from_str("#f1b"),
+            Ok(Name::Rgb(0xff, 0x11, 0xbb)),
+            "each digit of a 12-bit value is doubled to make the byte, as in git's own example"
+        );
+        assert_eq!(
+            Name::from_str("#abc"),
+            Ok(Name::Rgb(170, 187, 204)),
+            "`git` reports #abc as 170;187;204"
+        );
+        assert_eq!(
+            Name::from_str("#000"),
+            Ok(Name::Rgb(0, 0, 0)),
+            "doubling stays in range at the bottom of it"
+        );
+        assert_eq!(
+            Name::from_str("#fff"),
+            Ok(Name::Rgb(255, 255, 255)),
+            "doubling stays in range at the top of it"
+        );
+        assert_eq!(
+            Name::from_str("#aBc"),
+            Ok(Name::Rgb(170, 187, 204)),
+            "hex digits are matched case-insensitively, like the six-digit form"
+        );
 
-        // The shorthand and the long form it stands for are the same color, and the
-        // shorthand renders back as that long form.
-        assert_eq!(Name::from_str("#f1b"), Name::from_str("#ff11bb"));
-        assert_eq!(Name::from_str("#f1b").unwrap().to_string(), "#ff11bb");
+        assert_eq!(
+            Name::from_str("#f1b"),
+            Name::from_str("#ff11bb"),
+            "the shorthand and the long form it stands for are the same color"
+        );
+        assert_eq!(
+            Name::from_str("#f1b")
+                .expect("the shorthand parses, as asserted above")
+                .to_string(),
+            "#ff11bb",
+            "a shorthand renders back as the long form, since `Name::Rgb` keeps no record of which spelling it came from"
+        );
     }
 
     #[test]
@@ -113,15 +141,22 @@ mod name {
         assert!(Name::from_str("#gggggg").is_err());
         assert!(Name::from_str("#=»©=").is_err());
 
-        // `git` takes three or six digits and nothing in between or beyond, so the
-        // lengths either side of both forms stay rejected.
-        assert!(Name::from_str("#ab").is_err());
-        assert!(Name::from_str("#abcd").is_err());
-        assert!(Name::from_str("#abcde").is_err());
-        assert!(Name::from_str("#abcdefa").is_err());
-        assert!(Name::from_str("#aabbccddeeff").is_err());
-        assert!(Name::from_str("#ggg").is_err());
-        assert!(Name::from_str("#-12").is_err());
+        // `git` takes three or six digits and nothing in between or beyond, each
+        // checked against `git config --type=color` on git 2.50.1.
+        for input in ["#ab", "#abcd", "#abcde", "#abcdefa", "#aabbccddeeff"] {
+            assert!(
+                Name::from_str(input).is_err(),
+                "{input} has neither three nor six digits, and `git` rejects it too"
+            );
+        }
+        assert!(
+            Name::from_str("#ggg").is_err(),
+            "a three-digit value still has to be hexadecimal"
+        );
+        assert!(
+            Name::from_str("#-12").is_err(),
+            "a sign is not a hex digit, so it cannot fill one of the three slots"
+        );
     }
 }
 
