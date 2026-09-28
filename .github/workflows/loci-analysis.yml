@@ -1,0 +1,69 @@
+name: LOCI Analysis
+on:
+  push:
+    branches:
+      - loci/main-*
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  loci:
+    if: vars.UPSTREAM_REPO != ''
+    runs-on: ubuntu-latest
+
+    env:
+      LOCI_PROJECT: 'gitoxide'
+      LOCI_API_KEY: '${{ secrets.LOCI_API_KEY }}'
+      LOCI_BACKEND_URL: '${{ vars.LOCI_BACKEND_URL }}'
+      GH_TOKEN: ${{ secrets.MIRROR_REPOS_WRITE_PAT }}
+      CC_aarch64_unknown_linux_gnu: "aarch64-linux-gnu-gcc"
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: "aarch64-linux-gnu-gcc"
+      RUSTFLAGS: "-C debuginfo=2"
+      OPENSSL_STATIC: "1"
+
+    environment: ${{ vars.LOCI_ENV || 'PROD__AL_DEMO' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.sha) || github.sha }}
+
+      - name: Compute target
+        id: target
+        if: github.event_name == 'push'
+        run: |
+          branch="${{ github.ref_name }}"
+          sha="${branch#loci/main-}"
+          echo "value=main@${sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute base
+        id: base
+        if: github.event_name == 'pull_request'
+        run: |
+          git remote add upstream "https://github.com/${{ vars.UPSTREAM_REPO }}.git" 2>/dev/null || true   
+          git fetch upstream                                                                               
+          upstream_default=$(gh api "repos/${{ vars.UPSTREAM_REPO }}" --jq .default_branch)                
+          merge_base=$(git merge-base HEAD "upstream/${upstream_default}")                                 
+          short_sha="${merge_base:0:7}"                                                                    
+          echo "value=main@${short_sha}" >> "$GITHUB_OUTPUT"                                               
+
+      - name: Install dependencies
+        run: sudo apt install gcc-aarch64-linux-gnu && rustup target add aarch64-unknown-linux-gnu
+        shell: bash -euo pipefail {0}
+
+      - name: Build
+        run: cargo build --target aarch64-unknown-linux-gnu --release --bins --no-default-features --features max-pure
+        shell: bash -euo pipefail {0}
+
+      - name: Upload
+        uses: auroralabs-loci/loci-action@v1
+        with:
+          mode: upload
+          binaries: |
+                target/aarch64-unknown-linux-gnu/release/ein
+                target/aarch64-unknown-linux-gnu/release/gix
+          project: '${{ env.LOCI_PROJECT }}'
+          target: ${{ steps.target.outputs.value || ''}}
+          base: ${{ steps.base.outputs.value || '' }}
