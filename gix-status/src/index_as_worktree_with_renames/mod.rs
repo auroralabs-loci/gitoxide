@@ -180,7 +180,7 @@ pub(super) mod function {
                                 (
                                     ModificationOrDirwalkEntry::DirwalkEntry {
                                         id: rewrite::calculate_worktree_id(
-                                            options.object_hash,
+                                            index.object_hash(),
                                             worktree,
                                             entry.disk_kind,
                                             entry.rela_path.as_bstr(),
