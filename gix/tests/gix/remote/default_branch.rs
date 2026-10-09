@@ -47,6 +47,76 @@ fn maps_the_remote_head_to_the_branch_on_the_remote() -> Result {
 }
 
 #[test]
+fn preserves_fetch_sources_when_deriving_the_branch() -> Result {
+    let fixture = gix_testtools::scripted_fixture_writable("make_remote_repos.sh")?;
+    let repo_path = fixture.path().join("remote-default-branch");
+    let repo = gix::open_opts(&repo_path, gix::open::Options::isolated())?;
+    let commit_id = gix_testtools::git(fixture.path().join("base"), "rev-parse refs/heads/main")?;
+    let mut remote = repo.find_remote("origin")?;
+
+    for (source, expected_branch, fetch_head_source) in [
+        ("refs/heads/main", Some("refs/heads/main"), "branch 'main'"),
+        ("heads/main", Some("refs/heads/main"), "branch 'main'"),
+        ("refs/heads/*", Some("refs/heads/main"), "branch 'main'"),
+        ("heads/*", None, ""),
+        ("main", None, "branch 'main'"),
+        ("HEAD", None, "\t\t"),
+        ("@", None, "\t\t"),
+        ("", None, "\t\t"),
+        (commit_id.trim(), None, commit_id.trim()),
+        ("refs/tags/b-tag", None, "tag 'b-tag'"),
+        ("tags/b-tag", None, "tag 'b-tag'"),
+        ("b-tag", None, "tag 'b-tag'"),
+    ] {
+        let destination = if source.contains('*') {
+            "refs/remotes/origin/*"
+        } else {
+            "refs/remotes/origin/main"
+        };
+        let refspec = format!("+{source}:{destination}");
+        remote.replace_refspecs(Some(refspec.as_str()), gix::remote::Direction::Fetch)?;
+        gix_testtools::git(&repo_path, &format!("fetch --no-tags --refmap= origin {refspec}"))?;
+        let fetch_head = std::fs::read_to_string(repo.git_dir().join("FETCH_HEAD"))?;
+        if fetch_head_source.is_empty() {
+            assert!(
+                fetch_head.is_empty(),
+                "Git doesn't expand abbreviated glob sources: `{refspec}`"
+            );
+        } else {
+            assert!(
+                fetch_head.contains(fetch_head_source),
+                "Git fetches the original source of `{refspec}`: {fetch_head}"
+            );
+        }
+        assert_eq!(
+            remote
+                .default_branch()?
+                .map(|name| name.as_bstr().to_string())
+                .as_deref(),
+            expected_branch,
+            "`{refspec}` identifies a branch only when its source has a branch namespace"
+        );
+    }
+
+    let refspec = "+refs/*:refs/remotes/origin/*";
+    remote.replace_refspecs(Some(refspec), gix::remote::Direction::Fetch)?;
+    gix_testtools::git(&repo_path, &format!("fetch --no-tags --refmap= origin {refspec}"))?;
+    gix_testtools::git(
+        &repo_path,
+        "symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/heads/main",
+    )?;
+    assert_eq!(
+        remote
+            .default_branch()?
+            .map(|name| name.as_bstr().to_string())
+            .as_deref(),
+        Some("refs/heads/main"),
+        "a broad glob still identifies a branch when the reverse mapping has its full namespace"
+    );
+    Ok(())
+}
+
+#[test]
 fn fails_if_more_than_one_remote_reference_maps_to_the_remote_head_target() -> Result {
     let repo = remote::repo("remote-default-branch");
     let err = repo

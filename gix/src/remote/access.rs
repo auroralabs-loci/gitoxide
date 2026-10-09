@@ -45,7 +45,9 @@ impl<'repo> Remote<'repo> {
     /// more than one remote reference to it.
     ///
     /// `None` is returned if this remote has no name, if `refs/remotes/<name>/HEAD` doesn't exist or isn't symbolic,
-    /// or if no fetch refspec maps a remote reference to its target. Note that clones made with `gix` currently store
+    /// or if no fetch refspec maps a remote reference to its target. The source must identify a branch in `refs/heads/`
+    /// (also accepting exact names like `heads/main`); sources like `HEAD`, object IDs, tags, or unqualified names like
+    /// `main` return `None` as their branch cannot be determined offline. Note that clones made with `gix` currently store
     /// `refs/remotes/<name>/HEAD` as a direct reference, so `None` is returned for them.
     ///
     /// As the remote isn't contacted, it may have changed its default branch since, and the returned branch
@@ -72,14 +74,14 @@ impl<'repo> Remote<'repo> {
         };
 
         let null_id = self.repo.object_hash().null();
-        let mut mappings = MatchGroup::from_fetch_specs(self.fetch_specs.iter().map(RefSpec::to_ref))
-            .match_rhs(std::iter::once(match_group::Item {
+        let outcome = MatchGroup::from_fetch_specs(self.fetch_specs.iter().map(RefSpec::to_ref)).match_rhs(
+            std::iter::once(match_group::Item {
                 full_ref_name: tracking_branch.as_bstr(),
                 target: &null_id,
                 object: None,
-            }))
-            .mappings
-            .into_iter();
+            }),
+        );
+        let mut mappings = outcome.mappings.into_iter();
         let Some(mapping) = mappings.next() else {
             return Ok(None);
         };
@@ -94,7 +96,25 @@ impl<'repo> Remote<'repo> {
         let match_group::SourceRef::FullName(remote_branch) = mapping.lhs else {
             return Ok(None);
         };
-        FullName::try_from(remote_branch.into_owned())
+        let source = outcome.group.specs[mapping.spec_index]
+            .source()
+            .expect("a reverse mapping has a source");
+        // Reverse mappings expand partial names and object IDs as if they were local branch destinations.
+        let remote_branch = if source.contains(&b'*') {
+            if !remote_branch.starts_with(b"refs/heads/") {
+                return Ok(None);
+            }
+            remote_branch.into_owned()
+        } else if source.starts_with(b"heads/") {
+            let mut full_name = BString::from("refs/");
+            full_name.push_str(source);
+            full_name
+        } else if source.starts_with(b"refs/heads/") {
+            source.into()
+        } else {
+            return Ok(None);
+        };
+        FullName::try_from(remote_branch)
             .map(Some)
             .or_raise(|| gix_error::validation("The remote reference that the remote HEAD maps to has an invalid name"))
     }
