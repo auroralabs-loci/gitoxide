@@ -62,3 +62,7 @@ impl Service {
 
 ///
 pub mod client;
+
+#[cfg(feature = "blocking-server")]
+///
+pub mod server;
