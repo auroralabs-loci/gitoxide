@@ -1608,7 +1608,7 @@ fn clone_ignores_default_object_format() -> TestResult {
         tmp.path(),
         gix::create::Kind::Bare,
         Default::default(),
-        restricted().config_overrides(["init.defaultObjectFormat=sha256"]),
+        restricted().config_overrides(["init.defaultObjectFormat=invalid-will-not-be-read"]),
     )?
     .persist();
     assert_eq!(
