@@ -10,8 +10,7 @@ impl Extensions {
     pub const RELATIVE_WORKTREES: keys::Boolean =
         keys::Boolean::new_boolean("relativeWorktrees", &config::Tree::EXTENSIONS);
     /// The `extensions.objectFormat` key.
-    pub const OBJECT_FORMAT: ObjectFormat =
-        ObjectFormat::new_with_validate("objectFormat", &config::Tree::EXTENSIONS, validate::ObjectFormat);
+    pub const OBJECT_FORMAT: ObjectFormat = ObjectFormat::new_object_format("objectFormat", &config::Tree::EXTENSIONS);
 }
 
 /// The `extensions.objectFormat` key.
@@ -23,10 +22,18 @@ mod object_format {
     use crate::{
         Result,
         bstr::ByteSlice,
-        config::{key::error_with_value, tree::sections::extensions::ObjectFormat},
+        config::{
+            key::error_with_value,
+            tree::{Section, keys, sections::extensions::ObjectFormat},
+        },
     };
 
     impl ObjectFormat {
+        /// Create a new instance.
+        pub const fn new_object_format(name: &'static str, section: &'static dyn Section) -> Self {
+            keys::Any::new_with_validate(name, section, super::validate::ObjectFormat)
+        }
+
         /// Parse an object format, distinguishing unknown names from known hashes disabled in this build.
         /// Disabled hashes are classified as [`gix_error::Class::Unsupported`], unknown names as validation failures.
         pub fn try_into_object_format(&'static self, value: impl gix_utils::AsBStr) -> Result<gix_hash::Kind> {
