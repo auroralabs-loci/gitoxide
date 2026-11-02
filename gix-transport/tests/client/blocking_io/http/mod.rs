@@ -214,6 +214,7 @@ fn http_identity_is_picked_up_from_url() -> TestResult {
         Some(&gix_sec::identity::Account {
             username: "user".into(),
             password: "pass".into(),
+            authtype: None,
             oauth_refresh_token: None,
         })
     );
@@ -315,6 +316,7 @@ fn http_will_use_pipelining() {
         .set_identity(gix_sec::identity::Account {
             username: "foo".into(),
             password: "bar".into(),
+            authtype: None,
             oauth_refresh_token: None,
         })
         .unwrap();
@@ -351,6 +353,7 @@ fn http_authentication_error_can_be_differentiated_and_identity_is_transmitted()
     client.set_identity(gix_sec::identity::Account {
         username: "user".into(),
         password: "password".into(),
+        authtype: None,
         oauth_refresh_token: None,
     })?;
     let SetServiceResponse { refs, .. } = client.handshake(Service::UploadPack, &[])?;
@@ -427,6 +430,82 @@ Authorization: Basic dXNlcjpwYXNzd29yZA==
         "the authentication information is used in subsequent calls"
     );
 
+    Ok(())
+}
+
+#[test]
+fn http_authtype_credentials_are_transmitted_in_get_and_post() -> TestResult {
+    let (server, mut client) = mock::serve_and_connect("v1/http-handshake.response", "repo", Protocol::V1)?;
+    client.set_identity(gix_sec::identity::Account {
+        username: String::new(),
+        password: "pre-encoded-token".into(),
+        authtype: Some("Bearer".into()),
+        oauth_refresh_token: None,
+    })?;
+    let SetServiceResponse { refs, .. } = client.handshake(Service::UploadPack, &[])?;
+    io::copy(&mut refs.expect("refs in protocol V1"), &mut io::sink())?;
+    let get = server.received_as_string();
+
+    server.next_read_and_respond_with(
+        b"HTTP/1.1 200 OK
+Content-Type: application/x-git-upload-pack-result
+Content-Length: 4
+
+0000"
+            .to_vec(),
+    );
+    let (request, mut response) = client
+        .request(client::WriteMode::Binary, client::MessageKind::Flush, false)?
+        .into_parts();
+    drop(request);
+    io::copy(&mut response, &mut io::sink())?;
+    for request in [get, server.received_as_string()] {
+        assert_eq!(
+            request
+                .lines()
+                .filter(|line| line.to_ascii_lowercase().starts_with("authorization:"))
+                .collect::<Vec<_>>(),
+            ["Authorization: Bearer pre-encoded-token"],
+            "GET and POST use the supplied scheme and credential without Basic encoding"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn http_authtype_rejects_invalid_header_values() -> TestResult {
+    for (authtype, credential) in [
+        ("", "secret"),
+        ("Bearer token", "secret"),
+        ("Bearer:", "secret"),
+        ("Béarer", "secret"),
+        ("Bearer\r\nInjected: yes", "secret"),
+        ("Bearer", ""),
+        ("Bearer", "secret\r\nInjected: yes"),
+        ("Bearer", "secret\0"),
+        ("Bearer", "secret\t"),
+        ("Bearer", "secret\u{7f}"),
+    ] {
+        let mut client = http::connect::<Remote>("https://127.0.0.1:1/repo".try_into()?, Protocol::V1, false);
+        client.set_identity(gix_sec::identity::Account {
+            username: String::new(),
+            password: credential.into(),
+            authtype: Some(authtype.into()),
+            oauth_refresh_token: None,
+        })?;
+        let err = client
+            .handshake(Service::UploadPack, &[])
+            .err()
+            .expect("invalid authorization is rejected before connecting");
+        assert!(
+            matches!(err, client::Error::AuthenticationRefused(_)),
+            "invalid scheme or credential cannot reach either HTTP backend: {err}"
+        );
+        assert!(
+            !err.to_string().contains("secret"),
+            "authentication errors must not disclose the credential"
+        );
+    }
     Ok(())
 }
 
@@ -634,6 +713,7 @@ fn redirected_post_does_not_forward_basic_auth_to_the_new_host() -> TestResult {
     client.set_identity(gix_sec::identity::Account {
         username: "user".into(),
         password: "password".into(),
+        authtype: None,
         oauth_refresh_token: None,
     })?;
 

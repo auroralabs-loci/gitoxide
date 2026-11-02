@@ -1,5 +1,6 @@
 use std::io::Read;
 
+use bstr::ByteSlice;
 use gix_error::{ErrorExt, Result, ResultExt, message};
 
 use crate::helper::{Action, Context, NextAction, Outcome};
@@ -28,11 +29,36 @@ pub fn invoke(helper: &mut crate::Program, action: &Action) -> Result<Option<Out
     let options = action.context().map(|ctx| ctx.options).unwrap_or_default();
     match raw(helper, action)? {
         None => Ok(None),
-        Some(stdout) => {
-            let ctx = Context::from_bytes(stdout.as_slice(), options)?;
+        Some(mut stdout) => {
+            let mut ctx = Context::from_bytes(stdout.as_slice(), options)?;
+            let caller_supports_authtype = action.context().is_some_and(Context::supports_authtype);
+            if !caller_supports_authtype {
+                ctx.authtype = None;
+                ctx.credential = None;
+            }
+            let mut authtype_negotiated = false;
+            stdout = stdout
+                .lines()
+                .zip(stdout.lines_with_terminator())
+                .take_while(|(line, _)| !line.is_empty())
+                .filter(|(line, _)| {
+                    if *line == b"capability[]=authtype" {
+                        authtype_negotiated = caller_supports_authtype;
+                        return authtype_negotiated;
+                    }
+                    authtype_negotiated
+                        || (!line.starts_with(b"authtype=")
+                            && !line.starts_with(b"credential=")
+                            && !line.starts_with(b"ephemeral="))
+                })
+                .flat_map(|(_, line)| line)
+                .copied()
+                .collect();
             Ok(Some(Outcome {
                 username: ctx.username,
                 password: ctx.password,
+                authtype: ctx.authtype,
+                credential: ctx.credential,
                 oauth_refresh_token: ctx.oauth_refresh_token,
                 quit: ctx.quit.unwrap_or(false),
                 next: NextAction {

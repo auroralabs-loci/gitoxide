@@ -234,6 +234,7 @@ impl<H: Http> Transport<H> {
             .map(|(user, pass)| gix_sec::identity::Account {
                 username: user.to_string(),
                 password: pass.to_string(),
+                authtype: None,
                 oauth_refresh_token: None,
             });
         Transport {
@@ -316,10 +317,11 @@ impl<H: Http> Transport<H> {
         Ok(())
     }
 
-    fn add_basic_auth_if_present(&self, headers: &mut Vec<Cow<'_, str>>) -> std::result::Result<(), client::Error> {
+    fn add_auth_if_present(&self, headers: &mut Vec<Cow<'_, str>>) -> std::result::Result<(), client::Error> {
         if let Some(gix_sec::identity::Account {
             username,
             password,
+            authtype,
             oauth_refresh_token: _,
         }) = &self.identity
         {
@@ -329,10 +331,29 @@ impl<H: Http> Transport<H> {
                     "Will not send credentials in clear text over http",
                 ));
             }
-            headers.push(Cow::Owned(format!(
-                "Authorization: Basic {}",
-                base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"))
-            )));
+            let authorization = if let Some(scheme) = authtype {
+                if scheme.is_empty()
+                    || !scheme
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&byte))
+                {
+                    return Err(client::Error::AuthenticationRefused(
+                        "Invalid HTTP authentication scheme",
+                    ));
+                }
+                if password.is_empty() || password.bytes().any(|byte| byte.is_ascii_control()) {
+                    return Err(client::Error::AuthenticationRefused(
+                        "Invalid HTTP authentication credential",
+                    ));
+                }
+                format!("Authorization: {scheme} {password}")
+            } else {
+                format!(
+                    "Authorization: Basic {}",
+                    base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"))
+                )
+            };
+            headers.push(Cow::Owned(authorization));
         }
         Ok(())
     }
@@ -397,7 +418,7 @@ impl<H: Http> blocking_io::Transport for Transport<H> {
             );
             dynamic_headers.push(format!("Git-Protocol: {parameters}").into());
         }
-        self.add_basic_auth_if_present(&mut dynamic_headers)?;
+        self.add_auth_if_present(&mut dynamic_headers)?;
         let GetResponse { headers, mut body } = self
             .http
             .get(url.as_ref(), &self.url, static_headers.iter().chain(&dynamic_headers))
@@ -480,7 +501,7 @@ impl<H: Http> blocking_io::Transport for Transport<H> {
             format!("Accept: application/x-{}-result", service.as_str()).into(),
         ];
         let mut dynamic_headers = Vec::new();
-        self.add_basic_auth_if_present(&mut dynamic_headers)?;
+        self.add_auth_if_present(&mut dynamic_headers)?;
         if self.actual_version != Protocol::V1 {
             dynamic_headers.push(Cow::Owned(format!(
                 "Git-Protocol: version={}",
@@ -644,6 +665,31 @@ mod tests {
         fn configure(&mut self, _config: &dyn Any) -> Result {
             Ok(())
         }
+    }
+
+    #[test]
+    #[cfg(not(feature = "http-client-insecure-credentials"))]
+    fn authentication_headers_refuse_cleartext() -> gix_error::TestResult {
+        for authtype in [None, Some("Bearer".to_owned())] {
+            let mut transport =
+                Transport::new_http(FailingHttp, "http://localhost/repo".try_into()?, Protocol::V2, false);
+            transport.identity = Some(gix_sec::identity::Account {
+                username: "user".into(),
+                password: "secret".into(),
+                authtype,
+                oauth_refresh_token: None,
+            });
+            let mut headers = Vec::new();
+            assert!(
+                matches!(
+                    transport.add_auth_if_present(&mut headers),
+                    Err(client::Error::AuthenticationRefused(_))
+                ),
+                "Basic passwords and pre-encoded tokens both require HTTPS"
+            );
+            assert!(headers.is_empty(), "refused credentials never become an HTTP header");
+        }
+        Ok(())
     }
 
     #[test]

@@ -10,6 +10,151 @@ mod invoke {
     use gix_sec::identity::Account;
 
     #[test]
+    fn negotiated_authtype_supplies_an_identity_without_a_username() -> TestResult {
+        let context = Context::from_bytes(
+            b"capability[]=authtype
+protocol=https
+host=example.com
+wwwauth[]=Bearer
+",
+            Default::default(),
+        )?;
+        let outcome = Cascade::default()
+            .extend([
+                Program::from_custom_definition(
+                    r#"!f() {
+                        while IFS= read -r line; do
+                            if test "$line" = 'capability[]=authtype'; then
+                                printf 'capability[]=authtype\nauthtype=Bearer\ncredential=access-token\nephemeral=1\n'
+                            fi
+                        done
+                    }; f"#,
+                )?,
+                crate::helper::script_helper("custom-helper"),
+            ])
+            .invoke(
+                Action::Get(context),
+                gix_prompt::Options {
+                    mode: gix_prompt::Mode::Hidden,
+                    askpass: Some(gix_testtools::fixture_path("username.sh")),
+                },
+            )?
+            .expect("a negotiated bearer credential is a complete identity");
+        assert_eq!(
+            outcome.identity.password, "access-token",
+            "the credential stays pre-encoded"
+        );
+        assert!(
+            outcome.identity.username.is_empty(),
+            "bearer credentials do not need a username"
+        );
+        assert_eq!(
+            outcome.identity.authtype.as_deref(),
+            Some("Bearer"),
+            "the helper selects the scheme"
+        );
+        let context = Context::try_from(&outcome.next)?;
+        assert!(
+            context.www_authenticate.is_empty(),
+            "challenges are not returned for storage"
+        );
+        for action in [outcome.next.clone().store(), outcome.next.erase()] {
+            let payload = action.payload().expect("store and erase have a payload");
+            assert!(
+                payload.starts_with_str("capability[]=authtype\n"),
+                "the capability precedes its fields"
+            );
+            assert!(
+                payload.contains_str(
+                    "authtype=Bearer
+credential=access-token
+ephemeral=1
+"
+                ),
+                "helpers receive ephemeral credentials for both follow-up actions"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn incomplete_unnegotiated_or_expired_authtype_allows_password_fallback() -> TestResult {
+        for (announce, response) in [
+            (
+                false,
+                "capability[]=authtype
+authtype=Bearer
+credential=ignored
+",
+            ),
+            (
+                true,
+                "authtype=Bearer
+credential=ignored
+",
+            ),
+            (
+                true,
+                "capability[]=authtype
+authtype=Bearer
+",
+            ),
+            (
+                true,
+                "capability[]=authtype
+credential=ignored
+",
+            ),
+            (
+                true,
+                "capability[]=authtype
+authtype=Bearer
+credential=expired
+ephemeral=1
+password_expiry_utc=1
+",
+            ),
+        ] {
+            let outcome = Cascade::default()
+                .extend([
+                    Program::from_custom_definition(format!(
+                        "!f() {{ cat >/dev/null; printf '%s' '{response}'; }}; f"
+                    ))?,
+                    crate::helper::script_helper("custom-helper"),
+                ])
+                .invoke(
+                    Action::Get(Context {
+                        url: Some("https://example.com/repo".into()),
+                        capability: if announce { vec!["authtype".into()] } else { Vec::new() },
+                        ..Default::default()
+                    }),
+                    gix_prompt::Options {
+                        mode: gix_prompt::Mode::Disable,
+                        askpass: None,
+                    },
+                )?
+                .expect("the password helper remains available");
+            assert_eq!(
+                outcome.identity,
+                identity("user-script", "pass-script"),
+                "only a complete negotiated credential can replace a password: {response}"
+            );
+            if !announce || response.contains("password_expiry_utc") {
+                let next = Context::try_from(&outcome.next)?;
+                assert_eq!(
+                    next.credential, None,
+                    "unnegotiated and expired credentials must not be stored"
+                );
+                assert_eq!(
+                    next.ephemeral, None,
+                    "the fallback password has no inherited lifetime flag"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
     fn reconstructed_urls_cannot_change_the_host_sent_to_helpers() -> TestResult {
         for user in ["victim@trusted.example?", "victim@trusted.example/", "github.com/"] {
             let outcome = Cascade::default()
@@ -325,6 +470,57 @@ mod invoke {
         Ok(())
     }
 
+    #[test]
+    fn username_only_queries_ignore_tokens_and_reach_the_username_helper() -> TestResult {
+        for prefilled in [false, true] {
+            let actual = Cascade::default()
+                .query_user_only(true)
+                .extend([
+                    Program::from_custom_definition(
+                        r#"!f() {
+                            while IFS= read -r line; do
+                                case "$line" in
+                                    'capability[]=authtype'|authtype=*|credential=*|ephemeral=*) echo quit=1 ;;
+                                esac
+                            done
+                            printf 'capability[]=authtype\nauthtype=Bearer\ncredential=helper-token\n'
+                        }; f"#,
+                    )?,
+                    crate::helper::script_helper("username"),
+                ])
+                .invoke(
+                    Action::Get(Context {
+                        url: Some("https://example.com/repo".into()),
+                        capability: vec!["authtype".into()],
+                        authtype: prefilled.then(|| "Bearer".into()),
+                        credential: prefilled.then(|| "input-token".into()),
+                        ephemeral: prefilled.then_some(true),
+                        ..Default::default()
+                    }),
+                    gix_prompt::Options {
+                        mode: gix_prompt::Mode::Disable,
+                        askpass: None,
+                    },
+                )?
+                .expect("tokens cannot complete a query for a username");
+            assert_eq!(
+                actual.identity,
+                identity("user", ""),
+                "the username helper supplies the user and the bogus password is retained"
+            );
+            for action in [actual.next.clone().store(), actual.next.erase()] {
+                let payload = action.payload().expect("follow-up actions have a payload");
+                assert!(
+                    !payload.contains_str("authtype")
+                        && !payload.contains_str("credential=")
+                        && !payload.contains_str("ephemeral="),
+                    "username-only queries neither negotiate nor forward token credentials"
+                );
+            }
+        }
+        Ok(())
+    }
+
     fn action_get() -> Action {
         Action::get_for_url("does/not/matter")
     }
@@ -333,6 +529,7 @@ mod invoke {
         Account {
             username: user.into(),
             password: pass.into(),
+            authtype: None,
             oauth_refresh_token: None,
         }
     }

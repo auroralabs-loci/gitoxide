@@ -9,6 +9,7 @@ mod write {
 
     impl Context {
         /// Write ourselves to `out` such that [`from_bytes()`][Self::from_bytes()] can decode it losslessly.
+        /// Fields enabled by `authtype` are only written if that capability is set.
         /// Invalid field values are retained as `input` bytes in the I/O error.
         /// After [wrapping](gix_error::Error::from_error()), inspect them with
         /// [metadata](gix_error::Error::metadata()).
@@ -22,11 +23,15 @@ mod write {
             }
             let Context {
                 options: ContextOptions { protect_protocol },
+                capability,
                 protocol,
                 host,
                 path,
                 username,
                 password,
+                authtype,
+                credential,
+                ephemeral,
                 oauth_refresh_token,
                 password_expiry_utc,
                 www_authenticate,
@@ -35,6 +40,10 @@ mod write {
                 // credential helper invocation chain.
                 quit: _,
             } = self;
+            for value in capability {
+                validate("capability[]", value.as_str().into(), *protect_protocol).map_err(std::io::Error::other)?;
+                write_key(&mut out, "capability[]", value.as_bytes().as_bstr()).ok();
+            }
             for (key, value) in [("url", url), ("path", path)] {
                 if let Some(value) = value {
                     validate(key, value.as_slice().into(), *protect_protocol).map_err(std::io::Error::other)?;
@@ -58,6 +67,17 @@ mod write {
                 let value = value.to_string();
                 validate(key, value.as_str().into(), *protect_protocol).map_err(std::io::Error::other)?;
                 write_key(&mut out, key, value.as_bytes().as_bstr()).ok();
+            }
+            if self.supports_authtype() {
+                for (key, value) in [("authtype", authtype), ("credential", credential)] {
+                    if let Some(value) = value {
+                        validate(key, value.as_str().into(), *protect_protocol).map_err(std::io::Error::other)?;
+                        write_key(&mut out, key, value.as_bytes().as_bstr()).ok();
+                    }
+                }
+                if let Some(value) = ephemeral {
+                    write_key(&mut out, "ephemeral", if *value { "1" } else { "0" }.into()).ok();
+                }
             }
             for value in www_authenticate {
                 let key = "wwwauth[]";
@@ -86,6 +106,7 @@ pub mod decode {
 
     impl Context {
         /// Decode ourselves from `input` which is the format written by [`write_to()`][Self::write_to()].
+        /// Fields enabled by `authtype` require a preceding `capability[]=authtype` line.
         /// `options` control what to support during deserialization.
         /// Invalid line or value bytes are stored as `input` in [`gix_error::Message::values`].
         /// After [wrapping](gix_error::Error::from_error()), inspect them with
@@ -97,11 +118,15 @@ pub mod decode {
             };
             let Context {
                 options: _,
+                capability,
                 protocol,
                 host,
                 path,
                 username,
                 password,
+                authtype,
+                credential,
+                ephemeral,
                 oauth_refresh_token,
                 password_expiry_utc,
                 www_authenticate,
@@ -124,16 +149,31 @@ pub mod decode {
             }) {
                 let (key, value) = res?;
                 match key {
-                    "protocol" | "host" | "username" | "password" | "oauth_refresh_token" => {
+                    "authtype" | "credential" | "ephemeral"
+                        if !capability.iter().any(|capability| capability == "authtype") => {}
+                    "protocol"
+                    | "host"
+                    | "username"
+                    | "password"
+                    | "oauth_refresh_token"
+                    | "authtype"
+                    | "credential"
+                    | "capability[]" => {
                         if !value.is_utf8() {
                             bail!(validation(format!("Illformed UTF-8 in value of key {key:?}")).with_input(value));
                         }
                         let value = value.to_string();
+                        if key == "capability[]" {
+                            capability.push(value);
+                            continue;
+                        }
                         *match key {
                             "protocol" => &mut *protocol,
                             "host" => host,
                             "username" => username,
                             "password" => password,
+                            "authtype" => authtype,
+                            "credential" => credential,
                             "oauth_refresh_token" => oauth_refresh_token,
                             _ => unreachable!("checked field names in match above"),
                         } = Some(value);
@@ -144,10 +184,11 @@ pub mod decode {
                     "url" => *url = Some(value),
                     "path" => *path = Some(value),
                     "wwwauth[]" => www_authenticate.push(value),
-                    "quit" => {
-                        *quit = gix_config_value::Boolean::try_from(value.as_bstr())
-                            .ok()
-                            .map(Into::into);
+                    "quit" | "ephemeral" => {
+                        *if key == "quit" { &mut *quit } else { &mut *ephemeral } =
+                            gix_config_value::Boolean::try_from(value.as_bstr())
+                                .ok()
+                                .map(Into::into);
                     }
                     _ => {}
                 }

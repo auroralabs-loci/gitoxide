@@ -27,6 +27,10 @@ pub struct Outcome {
     pub username: Option<String>,
     /// The password to use in the identity, if set.
     pub password: Option<String>,
+    /// The authentication scheme for [`credential`](Self::credential), if negotiated with the helper.
+    pub authtype: Option<String>,
+    /// A secret, pre-encoded credential to use with [`authtype`](Self::authtype).
+    pub credential: Option<String>,
     /// An OAuth refresh token that may accompany a password. It is to be treated confidentially, just like the password.
     pub oauth_refresh_token: Option<String>,
     /// If set, the helper asked to stop the entire process, whether the identity is complete or not.
@@ -36,10 +40,22 @@ pub struct Outcome {
 }
 
 impl Outcome {
-    /// Try to fetch username _and_ password to form an identity. This will fail if one of them is not set.
+    /// Consume a complete authentication scheme and credential, or a username and password, to form an identity.
     ///
-    /// This does nothing if only one of the fields is set, or consume both.
+    /// A complete scheme and credential take precedence. Incomplete pairs are left untouched.
     pub fn consume_identity(&mut self) -> Option<gix_sec::identity::Account> {
+        if self.authtype.is_some() && self.credential.is_some() {
+            return self
+                .authtype
+                .take()
+                .zip(self.credential.take())
+                .map(|(authtype, credential)| gix_sec::identity::Account {
+                    username: self.username.take().unwrap_or_default(),
+                    password: credential,
+                    authtype: Some(authtype),
+                    oauth_refresh_token: self.oauth_refresh_token.take(),
+                });
+        }
         if self.username.is_none() || self.password.is_none() {
             return None;
         }
@@ -49,6 +65,7 @@ impl Outcome {
             .map(|(username, password)| gix_sec::identity::Account {
                 username,
                 password,
+                authtype: None,
                 oauth_refresh_token: self.oauth_refresh_token.take(),
             })
     }

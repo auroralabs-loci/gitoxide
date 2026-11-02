@@ -17,6 +17,9 @@ pub struct Outcome {
 pub struct Context {
     /// Options controlling how this context is encoded and decoded.
     pub options: ContextOptions,
+    /// Credential protocol capabilities, announced before the fields they enable.
+    /// `authtype` enables [`authtype`](Self::authtype), [`credential`](Self::credential), and [`ephemeral`](Self::ephemeral).
+    pub capability: Vec<String>,
     /// The protocol over which the credential will be used (e.g., https).
     pub protocol: Option<String>,
     /// The remote hostname for a network credential. This includes the port number if one was specified (e.g., "example.com:8088").
@@ -28,6 +31,14 @@ pub struct Context {
     pub username: Option<String>,
     /// The credential’s password, if we are asking it to be stored.
     pub password: Option<String>,
+    /// The authentication scheme to use with [`credential`](Self::credential), for example `Bearer`.
+    pub authtype: Option<String>,
+    /// A pre-encoded credential used with [`authtype`](Self::authtype) instead of username and password.
+    /// This value is secret, just like [`password`](Self::password).
+    pub credential: Option<String>,
+    /// Whether the credential is short-lived and should not be saved by helpers.
+    /// Store and erase still pass this flag to helpers so they can update their own state.
+    pub ephemeral: Option<bool>,
     /// An OAuth refresh token that may accompany a password. It is to be treated confidentially, just like the password.
     pub oauth_refresh_token: Option<String>,
     /// The expiry date of OAuth tokens as seconds from Unix epoch.
