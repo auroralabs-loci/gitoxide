@@ -3,6 +3,15 @@ use bstr::BString;
 use crate::protocol::{Context, ContextOptions};
 
 impl Context {
+    pub(crate) fn supports_authtype(&self) -> bool {
+        self.capability.iter().any(|capability| capability == "authtype")
+    }
+
+    pub(crate) fn has_complete_identity(&self) -> bool {
+        (self.supports_authtype() && self.authtype.is_some() && self.credential.is_some())
+            || (self.username.is_some() && self.password.is_some())
+    }
+
     /// Create a context containing `url`, encoded and decoded according to `options`.
     pub fn from_url(url: impl Into<BString>, options: ContextOptions) -> Self {
         Context {
@@ -30,11 +39,15 @@ mod access {
         pub fn clear_secrets(&mut self) {
             let Context {
                 options: _,
+                capability: _,
                 protocol: _,
                 host: _,
                 path: _,
                 username: _,
                 password,
+                authtype: _,
+                credential,
+                ephemeral: _,
                 oauth_refresh_token,
                 password_expiry_utc: _,
                 www_authenticate: _,
@@ -43,24 +56,29 @@ mod access {
             } = self;
 
             *password = None;
+            *credential = None;
             *oauth_refresh_token = None;
         }
         /// Replace existing secrets with the word `<redacted>`.
         pub fn redacted(mut self) -> Self {
             let Context {
                 options: _,
+                capability: _,
                 protocol: _,
                 host: _,
                 path: _,
                 username: _,
                 password,
+                authtype: _,
+                credential,
+                ephemeral: _,
                 oauth_refresh_token,
                 password_expiry_utc: _,
                 www_authenticate: _,
                 url: _,
                 quit: _,
             } = &mut self;
-            for secret in [password, oauth_refresh_token].into_iter().flatten() {
+            for secret in [password, credential, oauth_refresh_token].into_iter().flatten() {
                 *secret = "<redacted>".into();
             }
             self

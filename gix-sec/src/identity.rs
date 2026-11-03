@@ -4,10 +4,12 @@ use std::path::Path;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// An account based identity
 pub struct Account {
-    /// The user's name
+    /// The user's name, unused when [`authtype`][Self::authtype] is set.
     pub username: String,
-    /// The user's password
+    /// The user's password, or the pre-encoded credential when [`authtype`][Self::authtype] is set.
     pub password: String,
+    /// The HTTP authentication scheme, such as `Bearer`. If absent, use username/password authentication.
+    pub authtype: Option<String>,
     /// An OAuth refresh token that may accompany the password. It is to be treated confidentially, just like the password.
     pub oauth_refresh_token: Option<String>,
 }

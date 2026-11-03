@@ -72,6 +72,11 @@ where
                 let credentials::protocol::Outcome { identity, next } = authenticate(credentials::helper::Action::Get(
                     credentials::protocol::Context {
                         url: Some(url.clone()),
+                        capability: if url.starts_with(b"http://") || url.starts_with(b"https://") {
+                            vec!["authtype".into()]
+                        } else {
+                            Vec::new()
+                        },
                         www_authenticate,
                         ..Default::default()
                     },

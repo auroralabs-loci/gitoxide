@@ -3,6 +3,82 @@ use bstr::ByteSlice;
 use gix_credentials::protocol::{Context, ContextOptions};
 
 #[test]
+fn authtype_fields_roundtrip_only_after_their_capability_and_hide_secrets() -> TestResult {
+    let fields = b"authtype=Bearer
+credential=access-token
+ephemeral=1
+";
+    for capability in [b"".as_slice(), b"capability[]=unknown\n"] {
+        let input = [capability, fields, b"capability[]=authtype\n"].concat();
+        let context = Context::from_bytes(&input, Default::default())?;
+        assert_eq!(
+            context.authtype, None,
+            "a later or unknown capability does not enable fields retroactively"
+        );
+        assert_eq!(context.credential, None, "unnegotiated credentials are discarded");
+        assert_eq!(
+            context.ephemeral, None,
+            "the lifetime flag requires the same capability"
+        );
+    }
+    let input = [b"capability[]=authtype\n".as_slice(), fields].concat();
+    let mut context = Context::from_bytes(&input, Default::default())?;
+    assert_eq!(
+        context.to_bstring(),
+        input,
+        "capabilities precede all dependent fields during serialization"
+    );
+    let redacted = context.clone().redacted();
+    assert_eq!(
+        redacted.credential.as_deref(),
+        Some("<redacted>"),
+        "token credentials are secrets"
+    );
+    let err = gix_credentials::protocol::helper_outcome_to_result(
+        None,
+        gix_credentials::helper::Action::Get(context.clone()),
+    )
+    .expect_err("a missing helper outcome produces context for diagnostics");
+    assert!(
+        !err.to_string().contains("access-token"),
+        "missing-identity diagnostics must not expose credentials"
+    );
+    context.clear_secrets();
+    assert_eq!(
+        context.credential, None,
+        "clearing passwords also clears pre-encoded credentials"
+    );
+    Ok(())
+}
+
+#[test]
+fn authtype_protocol_fields_reject_record_injection() {
+    for value in ["Bearer\nusername=injected", "Bearer\rusername=injected", "Bearer\0"] {
+        for context in [
+            Context {
+                capability: vec![value.into()],
+                ..Default::default()
+            },
+            Context {
+                capability: vec!["authtype".into()],
+                authtype: Some(value.into()),
+                ..Default::default()
+            },
+            Context {
+                capability: vec!["authtype".into()],
+                credential: Some(value.into()),
+                ..Default::default()
+            },
+        ] {
+            assert!(
+                context.write_to(Vec::new()).is_err(),
+                "capabilities and their credential fields cannot inject protocol records"
+            );
+        }
+    }
+}
+
+#[test]
 fn authentication_challenges_survive_a_protocol_roundtrip() -> TestResult {
     let input = b"protocol=https
 host=github.com
